@@ -1,0 +1,22 @@
+# Flutter/Dart/Pub related
+**/doc/packages
+.dart_tool/
+.packages
+pubspec.lock
+
+# IntelliJ related
+.idea/
+*.iml
+
+# VS Code related
+.vscode/
+
+# Flutter build output
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.metadata
+
+# macOS
+.DS_Store
