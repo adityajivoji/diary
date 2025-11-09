@@ -1,22 +1,150 @@
-# Flutter/Dart/Pub related
-**/doc/packages
-.dart_tool/
-.packages
-pubspec.lock
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
 
 # IntelliJ related
-.idea/
 *.iml
+*.ipr
+*.iws
+.idea/
 
 # VS Code related
 .vscode/
 
-# Flutter build output
-build/
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .flutter-versions
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# For library packages, don't commit pubspec.lock.
+# See https://dart.dev/guides/libraries/private-files#pubspeclock
+# pubspec.lock
+
+# Flutter metadata
 .metadata
 
+# Android related
+android/.gradle/
+android/app/debug
+android/app/profile
+android/app/release
+android/app/google-services.json
+android/app/google-services.json.*
+android/local.properties
+*.jks
+*.keystore
+
+# iOS/macOS related
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Profile
+ios/Runner/GeneratedPluginRegistrant.*
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.*
+
+# Windows/Linux related
+linux/flutter/ephemeral/
+linux/GeneratedPluginRegistrant.*
+windows/flutter/ephemeral/
+windows/GeneratedPluginRegistrant.*
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+
+# Flutter/Dart/Pub related
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+flutter_*.png
+
+# Symbolication and obfuscation
+app.*.symbols
+
+# Generated plugin registrant
+**/GeneratedPluginRegistrant.*
+
+# iOS specific
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework/
+ios/Flutter/engine/
+ios/.symlinks/
+ios/Pods/
+ios/Podfile.lock
+ios/Runner.xcworkspace/
+ios/Runner.xcodeproj/project.xcworkspace/
+ios/Runner.xcodeproj/xcuserdata/
+ios/Flutter/.last_build_id
+ios/build/
+
+# Android specific
+android/.gradle/
+android/app/build/
+android/local.properties
+android/key.properties
+android/.cxx/
+android/gradlew
+android/gradlew.bat
+android/gradle-wrapper.jar
+android/gradle/
+android/captures/
+
+# Web related
+web/.dart_tool/
+web/.idea/
+
 # macOS
-.DS_Store
+macos/Flutter/ephemeral/
+macos/Pods/
+macos/Podfile.lock
+macos/Runner.xcworkspace/
+macos/build/
+
+# Windows
+windows/flutter/ephemeral/
+windows/build/
+
+# Linux
+linux/flutter/ephemeral/
+linux/build/
+
+# IntelliJ / VS Code
+.idea/
+.vscode/
+*.iml
+
+# Crashlytics
+firebase_app_id_file.json
+
+# Misc
+*.lock
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+
+# Environment files
+.env
+.env.*

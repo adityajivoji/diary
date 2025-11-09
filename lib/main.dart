@@ -4,7 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'data/diary_repository.dart';
 import 'models/diary_entry.dart';
 import 'screens/home_screen.dart';
-import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,19 +15,31 @@ Future<void> main() async {
   }
   await Hive.openBox<DiaryEntry>(DiaryRepository.boxName);
 
-  runApp(const PastelDiaryApp());
+  final themeController = await ThemeController.load();
+
+  runApp(PastelDiaryApp(themeController: themeController));
 }
 
 class PastelDiaryApp extends StatelessWidget {
-  const PastelDiaryApp({super.key});
+  const PastelDiaryApp({required this.themeController, super.key});
+
+  final ThemeController themeController;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Pastel Diary',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.build(),
-      home: const HomeScreen(),
+    return AnimatedBuilder(
+      animation: themeController,
+      builder: (context, _) {
+        return ThemeControllerProvider(
+          controller: themeController,
+          child: MaterialApp(
+            title: 'Pastel Diary',
+            debugShowCheckedModeBanner: false,
+            theme: themeController.themeData,
+            home: const HomeScreen(),
+          ),
+        );
+      },
     );
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/diary_entry.dart';
-import '../theme/app_colors.dart';
 
 /// Small card preview for a diary entry in the list.
 class EntryCard extends StatelessWidget {
@@ -21,6 +20,10 @@ class EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accentColor =
+        theme.colorScheme.secondaryContainer.withValues(alpha: 0.6);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -30,7 +33,7 @@ class EntryCard extends StatelessWidget {
         onDismissed: (_) => onDelete?.call(),
         background: Container(
           decoration: BoxDecoration(
-            color: Colors.redAccent.withOpacity(0.2),
+            color: Colors.redAccent.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(18),
           ),
           alignment: Alignment.centerRight,
@@ -48,7 +51,7 @@ class EntryCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: AppColors.mintMist.withOpacity(0.6),
+                    backgroundColor: accentColor,
                     child: Text(
                       entry.mood.emoji,
                       style: const TextStyle(fontSize: 24),
@@ -61,7 +64,7 @@ class EntryCard extends StatelessWidget {
                       children: [
                         Text(
                           _dateFormat.format(entry.date),
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
@@ -70,7 +73,7 @@ class EntryCard extends StatelessWidget {
                           entry.content,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: theme.textTheme.bodyMedium,
                         ),
                       ],
                     ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/diary_entry.dart';
-import '../theme/app_colors.dart';
 
 typedef MoodChangedCallback = void Function(Mood? mood);
 
@@ -28,15 +27,23 @@ class MoodSelector extends StatelessWidget {
           ChoiceChip(
             label: Text('${mood.emoji} ${mood.label}'),
             selected: selectedMood == mood,
-            onSelected: (_) => onMoodSelected(mood),
-            selectedColor: AppColors.mintMist.withOpacity(0.8),
+            onSelected: (_) {
+              if (allowClear && selectedMood == mood) {
+                onMoodSelected(null);
+              } else {
+                onMoodSelected(mood);
+              }
+            },
+            selectedColor: Theme.of(context).chipTheme.selectedColor,
           ),
         if (allowClear && selectedMood != null)
           ActionChip(
             label: const Text('Clear'),
             avatar: const Icon(Icons.refresh, size: 18),
             onPressed: () => onMoodSelected(null),
-            backgroundColor: Colors.white.withOpacity(0.85),
+            backgroundColor:
+                Theme.of(context).chipTheme.backgroundColor ??
+                Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
       ],
     );
