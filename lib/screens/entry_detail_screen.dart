@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../data/diary_repository.dart';
 import '../models/diary_entry.dart';
 import 'add_entry_screen.dart';
+import '../widgets/notebook_viewer.dart';
 
 /// Shows a single diary entry in detail.
 class EntryDetailScreen extends StatelessWidget {
@@ -37,6 +38,7 @@ class EntryDetailScreen extends StatelessWidget {
       valueListenable: repository.listenable(),
       builder: (context, box, _) {
         final currentEntry = box.get(entry.id) ?? entry;
+        final isNotebook = currentEntry.usesNotebook;
 
         return Scaffold(
           appBar: AppBar(
@@ -138,9 +140,21 @@ class EntryDetailScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Text(
-                      currentEntry.content,
-                      style: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: isNotebook
+                          ? NotebookViewer(
+                              key: const ValueKey('notebook-viewer'),
+                              spreads: currentEntry.notebookSpreads,
+                              appearance: currentEntry.notebookAppearance,
+                            )
+                          : Text(
+                              currentEntry.content,
+                              key: const ValueKey('text-entry'),
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                height: 1.5,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 32),

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-
 import '../models/diary_entry.dart';
 
 /// Wraps common Hive operations for diary entries.

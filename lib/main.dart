@@ -13,6 +13,15 @@ Future<void> main() async {
   if (!Hive.isAdapterRegistered(DiaryEntryAdapter().typeId)) {
     Hive.registerAdapter(DiaryEntryAdapter());
   }
+  if (!Hive.isAdapterRegistered(NotebookAttachmentAdapter().typeId)) {
+    Hive.registerAdapter(NotebookAttachmentAdapter());
+  }
+  if (!Hive.isAdapterRegistered(NotebookSpreadAdapter().typeId)) {
+    Hive.registerAdapter(NotebookSpreadAdapter());
+  }
+  if (!Hive.isAdapterRegistered(NotebookAppearanceAdapter().typeId)) {
+    Hive.registerAdapter(NotebookAppearanceAdapter());
+  }
   await Hive.openBox<DiaryEntry>(DiaryRepository.boxName);
 
   final themeController = await ThemeController.load();

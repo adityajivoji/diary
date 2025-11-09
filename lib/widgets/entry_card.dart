@@ -23,13 +23,16 @@ class EntryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final accentColor =
         theme.colorScheme.secondaryContainer.withValues(alpha: 0.6);
+    final summary = entry.usesNotebook ? entry.notebookSummary : entry.content;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       child: Dismissible(
         key: ValueKey(entry.id),
-        direction: onDelete == null ? DismissDirection.none : DismissDirection.endToStart,
+        direction: onDelete == null
+            ? DismissDirection.none
+            : DismissDirection.endToStart,
         onDismissed: (_) => onDelete?.call(),
         background: Container(
           decoration: BoxDecoration(
@@ -65,12 +68,33 @@ class EntryCard extends StatelessWidget {
                         Text(
                           _dateFormat.format(entry.date),
                           style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        const SizedBox(height: 4),
+                        if (entry.usesNotebook) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.menu_book_rounded,
+                                size: 16,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Notebook entry',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ] else
+                          const SizedBox(height: 4),
                         Text(
-                          entry.content,
+                          summary,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium,

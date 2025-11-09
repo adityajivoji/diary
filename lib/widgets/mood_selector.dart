@@ -41,8 +41,7 @@ class MoodSelector extends StatelessWidget {
             label: const Text('Clear'),
             avatar: const Icon(Icons.refresh, size: 18),
             onPressed: () => onMoodSelected(null),
-            backgroundColor:
-                Theme.of(context).chipTheme.backgroundColor ??
+            backgroundColor: Theme.of(context).chipTheme.backgroundColor ??
                 Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
       ],
