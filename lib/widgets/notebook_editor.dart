@@ -1,13 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:audioplayers/audioplayers.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-import 'package:file_selector/file_selector.dart';
 
 import '../models/diary_entry.dart';
 import 'notebook_page_scaffold.dart';
@@ -66,6 +68,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     'Patrick Hand',
     'Raleway',
   ];
+  static const int _maxAmplitudeSamples = 40;
 
   late final ImagePicker _imagePicker;
   final AudioRecorder _recorder = AudioRecorder();
@@ -75,6 +78,22 @@ class _NotebookEditorState extends State<NotebookEditor> {
   late List<TextEditingController> _textControllers;
 
   bool _isRecording = false;
+  Timer? _recordTimer;
+  StreamSubscription<Amplitude>? _amplitudeSubscription;
+  DateTime? _recordStart;
+  Duration _recordDuration = Duration.zero;
+  List<double> _amplitudeHistory = <double>[];
+  late final AudioPlayer _audioPlayer;
+  StreamSubscription<Duration>? _audioPositionSubscription;
+  StreamSubscription<Duration>? _audioDurationSubscription;
+  StreamSubscription<PlayerState>? _audioPlayerStateSubscription;
+  bool _hasCheckedRecordingDependencies = false;
+  bool _recordDependenciesAvailable = true;
+  String? _activeAttachmentId;
+  Duration _audioPosition = Duration.zero;
+  Duration? _audioDuration;
+  bool _isAudioLoading = false;
+  bool _isAudioPlaying = false;
   int _currentPage = 0;
 
   @override
@@ -97,6 +116,41 @@ class _NotebookEditorState extends State<NotebookEditor> {
     for (var i = 0; i < _spreads.length; i++) {
       _textControllers.add(TextEditingController(text: _spreads[i].text));
     }
+    _audioPlayer = AudioPlayer();
+    _audioPositionSubscription =
+        _audioPlayer.onPositionChanged.listen((position) {
+      if (!mounted || _activeAttachmentId == null) return;
+      setState(() => _audioPosition = position);
+    });
+    _audioDurationSubscription =
+        _audioPlayer.onDurationChanged.listen((duration) {
+      if (!mounted || _activeAttachmentId == null) return;
+      setState(() => _audioDuration = duration);
+    });
+    _audioPlayerStateSubscription =
+        _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (!mounted || _activeAttachmentId == null) return;
+      if (state == PlayerState.completed) {
+        _audioPlayer.stop();
+      }
+      setState(() {
+        _isAudioLoading = false;
+        _isAudioPlaying = state == PlayerState.playing;
+        if (state == PlayerState.completed) {
+          _audioPosition = _audioDuration ?? Duration.zero;
+          _isAudioPlaying = false;
+          _activeAttachmentId = null;
+          return;
+        }
+        if (state == PlayerState.stopped) {
+          _isAudioPlaying = false;
+          _audioPosition = Duration.zero;
+          _audioDuration = null;
+          _activeAttachmentId = null;
+          return;
+        }
+      });
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyChanged());
   }
 
@@ -106,6 +160,12 @@ class _NotebookEditorState extends State<NotebookEditor> {
       controller.dispose();
     }
     _pageController.dispose();
+    _recordTimer?.cancel();
+    _amplitudeSubscription?.cancel();
+    _audioPositionSubscription?.cancel();
+    _audioDurationSubscription?.cancel();
+    _audioPlayerStateSubscription?.cancel();
+    _audioPlayer.dispose();
     _recorder.dispose();
     super.dispose();
   }
@@ -146,25 +206,207 @@ class _NotebookEditorState extends State<NotebookEditor> {
       }
       return;
     }
+    String importPath;
+    try {
+      importPath = await _copyToAudioStorage(path);
+    } catch (error) {
+      debugPrint('Failed to import audio file: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to import the selected audio file.'),
+          ),
+        );
+      }
+      return;
+    }
+
     final attachment = NotebookAttachment(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       type: NotebookAttachmentType.audio,
-      path: path,
+      path: importPath,
     );
     _updateAttachments(spreadIndex, (list) => list..add(attachment));
   }
 
+  Future<void> _handleAudioAttachmentPressed(
+    NotebookAttachment attachment,
+  ) async {
+    if (_activeAttachmentId == attachment.id) {
+      if (_isAudioPlaying) {
+        try {
+          await _audioPlayer.pause();
+        } catch (_) {}
+        if (mounted) {
+          setState(() => _isAudioPlaying = false);
+        }
+        return;
+      }
+      if (_audioDuration != null &&
+          _audioPosition >= _audioDuration! &&
+          _audioDuration != Duration.zero) {
+        try {
+          await _audioPlayer.seek(Duration.zero);
+        } catch (_) {}
+        if (mounted) {
+          setState(() => _audioPosition = Duration.zero);
+        }
+      }
+      try {
+        await _audioPlayer.resume();
+        if (mounted) {
+          setState(() => _isAudioPlaying = true);
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unable to resume audio playback.'),
+            ),
+          );
+        }
+      }
+      return;
+    }
+
+    if (_activeAttachmentId != null) {
+      await _stopAudioPlayback();
+    }
+
+    await _playAudioAttachment(attachment);
+  }
+
+  Future<void> _playAudioAttachment(NotebookAttachment attachment) async {
+    if (attachment.path.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Audio file missing.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final uri = _resolveAttachmentUri(attachment.path);
+    String? filePath;
+    if (uri.scheme == 'file' || uri.scheme.isEmpty) {
+      try {
+        filePath = uri.toFilePath();
+      } catch (_) {
+        filePath = null;
+      }
+      if (filePath == null || !File(filePath).existsSync()) {
+        final recovery = await _tryRecoverAudioFile(attachment);
+        if (recovery != null) {
+          filePath = recovery;
+        }
+      }
+      if (filePath == null || !File(filePath).existsSync()) {
+        debugPrint('Missing audio file at path: ${attachment.path}');
+        if (filePath != null) {
+          debugPrint('Resolved file path: $filePath');
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Audio file could not be found on disk.'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    setState(() {
+      _activeAttachmentId = attachment.id;
+      _isAudioLoading = true;
+      _isAudioPlaying = false;
+      _audioPosition = Duration.zero;
+      _audioDuration = null;
+    });
+
+    try {
+      Source source;
+      if (filePath != null) {
+        source = DeviceFileSource(filePath);
+      } else {
+        source = UrlSource(uri.toString());
+      }
+
+      await _audioPlayer.stop();
+      await _audioPlayer.setSource(source);
+      final duration = await _audioPlayer.getDuration();
+      if (!mounted) return;
+      setState(() {
+        _audioDuration = duration;
+      });
+      await _audioPlayer.resume();
+      if (!mounted) return;
+      setState(() {
+        _isAudioPlaying = true;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Audio playback error: $error');
+      debugPrint('$stackTrace');
+      if (!mounted) return;
+      setState(() {
+        _activeAttachmentId = null;
+        _audioPosition = Duration.zero;
+        _audioDuration = null;
+        _isAudioPlaying = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to play audio file.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAudioLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopAudioPlayback() async {
+    try {
+      await _audioPlayer.stop();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _activeAttachmentId = null;
+      _isAudioPlaying = false;
+      _isAudioLoading = false;
+      _audioPosition = Duration.zero;
+      _audioDuration = null;
+    });
+  }
+
   Future<void> _toggleRecording(int spreadIndex) async {
     if (_isRecording) {
-      final path = await _recorder.stop();
-      setState(() => _isRecording = false);
-      if (path == null) return;
-      final attachment = NotebookAttachment(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        type: NotebookAttachmentType.audio,
-        path: path,
-      );
-      _updateAttachments(spreadIndex, (list) => list..add(attachment));
+      await _stopRecording(spreadIndex);
+    } else {
+      await _startRecording();
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (_activeAttachmentId != null) {
+      await _stopAudioPlayback();
+    }
+
+    if (!await _ensureRecordingDependencies()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Recording on Linux requires ffmpeg. Please install it (e.g. sudo apt install ffmpeg).',
+            ),
+          ),
+        );
+      }
       return;
     }
 
@@ -179,7 +421,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
       }
       return;
     }
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await _getAudioStorageDirectory();
     final fileName =
         'notebook_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
     final filePath = p.join(directory.path, fileName);
@@ -188,8 +430,264 @@ class _NotebookEditorState extends State<NotebookEditor> {
       bitRate: 128000,
       sampleRate: 44100,
     );
-    await _recorder.start(config, path: filePath);
-    setState(() => _isRecording = true);
+
+    try {
+      await _recorder.start(config, path: filePath);
+    } catch (error, stackTrace) {
+      debugPrint('Audio record error: $error');
+      debugPrint('$stackTrace');
+      if (mounted) {
+        final message = error is ProcessException &&
+                error.executable == 'ffmpeg'
+            ? 'Recording on Linux requires ffmpeg. Install it and try again.'
+            : 'Unable to start recording. Please try again.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+          ),
+        );
+      }
+      return;
+    }
+
+    await _amplitudeSubscription?.cancel();
+    _amplitudeSubscription = null;
+
+    final startTime = DateTime.now();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isRecording = true;
+      _recordStart = startTime;
+      _recordDuration = Duration.zero;
+      _amplitudeHistory = <double>[];
+    });
+
+    _recordTimer?.cancel();
+    _recordTimer = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) {
+        if (!mounted || _recordStart == null) return;
+        setState(() {
+          _recordDuration = DateTime.now().difference(_recordStart!);
+        });
+      },
+    );
+
+    _amplitudeSubscription =
+        _recorder.onAmplitudeChanged(const Duration(milliseconds: 120)).listen(
+      (amplitude) {
+        if (!mounted) return;
+        setState(() {
+          final normalized = _normalizeAmplitude(amplitude.current);
+          _amplitudeHistory.add(normalized);
+          while (_amplitudeHistory.length > _maxAmplitudeSamples) {
+            _amplitudeHistory.removeAt(0);
+          }
+        });
+      },
+    );
+  }
+
+  Future<void> _stopRecording(int spreadIndex) async {
+    final path = await _recorder.stop();
+
+    await _amplitudeSubscription?.cancel();
+    _amplitudeSubscription = null;
+
+    _recordTimer?.cancel();
+    _recordTimer = null;
+
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordStart = null;
+        _recordDuration = Duration.zero;
+        _amplitudeHistory = <double>[];
+      });
+    }
+
+    if (path == null) return;
+
+    var finalPath = _expandUserPath(path);
+    final storageDir = await _getAudioStorageDirectory();
+    if (!p.isWithin(storageDir.path, finalPath)) {
+      final file = File(finalPath);
+      if (await file.exists()) {
+        try {
+          finalPath = await _copyToAudioStorage(finalPath);
+        } catch (error, stackTrace) {
+          debugPrint('Failed to move audio file: $error');
+          debugPrint('$stackTrace');
+        }
+      }
+    }
+
+    final attachment = NotebookAttachment(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      type: NotebookAttachmentType.audio,
+      path: finalPath,
+    );
+    _updateAttachments(spreadIndex, (list) => list..add(attachment));
+  }
+
+  double _normalizeAmplitude(double decibels) {
+    const minDb = -60.0;
+    final double clamped =
+        decibels.isFinite ? decibels.clamp(minDb, 0.0).toDouble() : minDb;
+    return (((clamped - minDb) / -minDb).clamp(0.0, 1.0)).toDouble();
+  }
+
+  Future<Directory> _getAudioStorageDirectory() async {
+    final documents = await getApplicationDocumentsDirectory();
+    final directory = Directory(p.join(documents.path, 'pastel_diary_audio'));
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    return directory;
+  }
+
+  Future<String> _copyToAudioStorage(String sourcePath) async {
+    final normalizedSource = _expandUserPath(sourcePath);
+    final file = File(normalizedSource);
+    if (!await file.exists()) {
+      throw FileSystemException(
+          'Source audio file does not exist.', sourcePath);
+    }
+
+    final directory = await _getAudioStorageDirectory();
+    if (p.isWithin(directory.path, file.path)) {
+      return file.path;
+    }
+
+    final baseName = p.basename(file.path);
+    final name = p.basenameWithoutExtension(baseName);
+    final extension = p.extension(baseName);
+
+    var destination = p.join(directory.path, baseName);
+    var counter = 1;
+    while (await File(destination).exists()) {
+      destination = p.join(directory.path, '${name}_$counter$extension');
+      counter++;
+    }
+
+    await file.copy(destination);
+    return destination;
+  }
+
+  Future<String?> _tryRecoverAudioFile(NotebookAttachment attachment) async {
+    final normalized = _expandUserPath(attachment.path);
+    final existing = File(normalized);
+    if (await existing.exists()) {
+      final storedPath = await _copyToAudioStorage(normalized);
+      await _updateAttachmentPath(attachment.id, storedPath);
+      return storedPath;
+    }
+
+    final audioDir = await _getAudioStorageDirectory();
+    final candidate = p.join(audioDir.path, p.basename(attachment.path));
+    if (await File(candidate).exists()) {
+      await _updateAttachmentPath(attachment.id, candidate);
+      return candidate;
+    }
+
+    return null;
+  }
+
+  Future<void> _updateAttachmentPath(
+      String attachmentId, String newPath) async {
+    for (var i = 0; i < _spreads.length; i++) {
+      final index = _spreads[i]
+          .attachments
+          .indexWhere((attachment) => attachment.id == attachmentId);
+      if (index != -1) {
+        _updateAttachments(
+          i,
+          (list) {
+            final updated = list[index].copyWith(path: newPath);
+            list[index] = updated;
+            return list;
+          },
+        );
+        break;
+      }
+    }
+  }
+
+  String _expandUserPath(String path) {
+    if (path.startsWith('~')) {
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        if (path == '~') {
+          return home;
+        }
+        if (path.startsWith('~/')) {
+          return p.join(home, path.substring(2));
+        }
+        return path.replaceFirst('~', home);
+      }
+    }
+    return path;
+  }
+
+  Future<bool> _ensureRecordingDependencies() async {
+    if (_hasCheckedRecordingDependencies) {
+      return _recordDependenciesAvailable;
+    }
+    _hasCheckedRecordingDependencies = true;
+    _recordDependenciesAvailable = true;
+
+    if (!Platform.isLinux) {
+      return true;
+    }
+
+    try {
+      final result = await Process.run('ffmpeg', ['-version']);
+      _recordDependenciesAvailable = result.exitCode == 0;
+    } catch (_) {
+      _recordDependenciesAvailable = false;
+    }
+    return _recordDependenciesAvailable;
+  }
+
+  Uri _resolveAttachmentUri(String path) {
+    if (path.contains('://')) {
+      try {
+        final uri = Uri.parse(path);
+        if (uri.scheme.isEmpty) {
+          return Uri.file(path);
+        }
+        return uri;
+      } catch (_) {
+        return Uri.file(path);
+      }
+    }
+    return Uri.file(path);
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    final buffer = StringBuffer();
+    if (hours > 0) {
+      buffer
+        ..write(hours.toString().padLeft(2, '0'))
+        ..write(':')
+        ..write(minutes.toString().padLeft(2, '0'))
+        ..write(':')
+        ..write(seconds.toString().padLeft(2, '0'));
+    } else {
+      buffer
+        ..write(minutes.toString().padLeft(2, '0'))
+        ..write(':')
+        ..write(seconds.toString().padLeft(2, '0'));
+    }
+    return buffer.toString();
   }
 
   void _updateAttachments(
@@ -208,7 +706,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
     _notifyChanged();
   }
 
-  void _removeAttachment(int spreadIndex, String attachmentId) {
+  Future<void> _removeAttachment(int spreadIndex, String attachmentId) async {
+    if (_activeAttachmentId == attachmentId) {
+      await _stopAudioPlayback();
+    }
     _updateAttachments(
       spreadIndex,
       (list) => list..removeWhere((item) => item.id == attachmentId),
@@ -554,19 +1055,95 @@ class _NotebookEditorState extends State<NotebookEditor> {
           ),
         );
       case NotebookAttachmentType.audio:
+        final isActive = attachment.id == _activeAttachmentId;
+        final position = isActive ? _audioPosition : Duration.zero;
+        final duration = isActive ? _audioDuration : null;
+        final progress =
+            isActive && duration != null && duration.inMilliseconds > 0
+                ? (position.inMilliseconds.clamp(
+                      0,
+                      duration.inMilliseconds,
+                    ) /
+                    duration.inMilliseconds)
+                : 0.0;
+        final titleStyle = Theme.of(context).textTheme.bodyMedium;
+        final durationLabel =
+            duration != null ? _formatDuration(duration) : '--:--';
+
         return Card(
           elevation: 0.8,
           shape: border,
-          child: ListTile(
-            leading: const Icon(Icons.audiotrack_rounded),
-            title: Text(
-              p.basename(attachment.path),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => _removeAttachment(spreadIndex, attachment.id),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: _isAudioLoading && isActive
+                          ? const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              iconSize: 36,
+                              padding: EdgeInsets.zero,
+                              onPressed: () =>
+                                  _handleAudioAttachmentPressed(attachment),
+                              icon: Icon(
+                                isActive && _isAudioPlaying
+                                    ? Icons.pause_circle_filled_rounded
+                                    : Icons.play_circle_filled_rounded,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        p.basename(attachment.path),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => _removeAttachment(
+                        spreadIndex,
+                        attachment.id,
+                      ),
+                    ),
+                  ],
+                ),
+                if (isActive) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: duration != null && duration.inMilliseconds > 0
+                        ? progress.toDouble().clamp(0.0, 1.0)
+                        : null,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${_formatDuration(position)} / $durationLabel',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.color
+                              ?.withValues(alpha: 0.7),
+                        ),
+                  ),
+                ],
+              ],
             ),
           ),
         );
@@ -691,6 +1268,71 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
   }
 
+  Widget _buildRecordingStatus(ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    final onContainer = colorScheme.onPrimaryContainer;
+    final waveformColor = colorScheme.primary.withValues(alpha: 0.85);
+    final samples = _amplitudeHistory.isEmpty
+        ? <double>[]
+        : List<double>.from(_amplitudeHistory);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.35),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: colorScheme.error,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Recording',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: onContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatDuration(_recordDuration),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: onContainer.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: SizedBox(
+              height: 32,
+              child: CustomPaint(
+                painter: _WaveformPainter(
+                  amplitudes: samples,
+                  color: waveformColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPageControls(double width) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
@@ -703,96 +1345,114 @@ class _NotebookEditorState extends State<NotebookEditor> {
         alignment: Alignment.center,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: width),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              IconButton.filledTonal(
-                onPressed: _currentPage > 0
-                    ? () {
-                        _pageController.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    : null,
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                tooltip: 'Previous page',
-                style: IconButton.styleFrom(
-                  foregroundColor: onSurface,
-                  disabledForegroundColor: disabledColor,
-                ),
+              Row(
+                children: [
+                  IconButton.filledTonal(
+                    onPressed: _currentPage > 0
+                        ? () {
+                            _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        : null,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    tooltip: 'Previous page',
+                    style: IconButton.styleFrom(
+                      foregroundColor: onSurface,
+                      disabledForegroundColor: disabledColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    onPressed: _currentPage < _spreads.length - 1
+                        ? () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        : null,
+                    icon: const Icon(Icons.arrow_forward_ios_rounded),
+                    tooltip: 'Next page',
+                    style: IconButton.styleFrom(
+                      foregroundColor: onSurface,
+                      disabledForegroundColor: disabledColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => _addPageAfter(_currentPage),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Add page'),
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.onPrimary,
+                      backgroundColor: theme.colorScheme.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: _goToPage,
+                    icon: const Icon(Icons.menu_book_rounded),
+                    label: Text('Page ${_currentPage + 1}/${_spreads.length}'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: onSurface,
+                      side: BorderSide(color: outlineColor),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () => _deletePage(_currentPage),
+                    tooltip: 'Delete page',
+                    icon: Icon(
+                      Icons.delete_rounded,
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  const Spacer(),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        _handleAddImage(_currentPage, ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_rounded),
+                    label: const Text('Camera'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () =>
+                        _handleAddImage(_currentPage, ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_rounded),
+                    label: const Text('Gallery'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _handleAddAudio(_currentPage),
+                    icon: const Icon(Icons.audiotrack_rounded),
+                    label: const Text('Audio'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _toggleRecording(_currentPage),
+                    icon: Icon(
+                      _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                    ),
+                    label: Text(_isRecording ? 'Stop' : 'Record'),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                onPressed: _currentPage < _spreads.length - 1
-                    ? () {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    : null,
-                icon: const Icon(Icons.arrow_forward_ios_rounded),
-                tooltip: 'Next page',
-                style: IconButton.styleFrom(
-                  foregroundColor: onSurface,
-                  disabledForegroundColor: disabledColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: () => _addPageAfter(_currentPage),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Add page'),
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  backgroundColor: theme.colorScheme.secondary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: _goToPage,
-                icon: const Icon(Icons.menu_book_rounded),
-                label: Text('Page ${_currentPage + 1}/${_spreads.length}'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: onSurface,
-                  side: BorderSide(color: outlineColor),
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: () => _deletePage(_currentPage),
-                tooltip: 'Delete page',
-                icon: Icon(
-                  Icons.delete_rounded,
-                  color: theme.colorScheme.error,
-                ),
-              ),
-              const Spacer(),
-              FilledButton.tonalIcon(
-                onPressed: () =>
-                    _handleAddImage(_currentPage, ImageSource.camera),
-                icon: const Icon(Icons.photo_camera_rounded),
-                label: const Text('Camera'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                onPressed: () =>
-                    _handleAddImage(_currentPage, ImageSource.gallery),
-                icon: const Icon(Icons.photo_library_rounded),
-                label: const Text('Gallery'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                onPressed: () => _handleAddAudio(_currentPage),
-                icon: const Icon(Icons.audiotrack_rounded),
-                label: const Text('Audio'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                onPressed: () => _toggleRecording(_currentPage),
-                icon:
-                    Icon(_isRecording ? Icons.stop_rounded : Icons.mic_rounded),
-                label: Text(_isRecording ? 'Stop' : 'Record'),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _isRecording
+                    ? Padding(
+                        key: const ValueKey('recording-indicator'),
+                        padding: const EdgeInsets.only(top: 16),
+                        child: _buildRecordingStatus(theme),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           ),
@@ -866,5 +1526,63 @@ class _NotebookEditorState extends State<NotebookEditor> {
         );
       },
     );
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  _WaveformPainter({
+    required this.amplitudes,
+    required this.color,
+  });
+
+  final List<double> amplitudes;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (amplitudes.isEmpty) {
+      final centerPaint = Paint()
+        ..color = color.withValues(alpha: 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      final centerY = size.height / 2;
+      canvas.drawLine(
+        Offset(0, centerY),
+        Offset(size.width, centerY),
+        centerPaint,
+      );
+      return;
+    }
+
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = color;
+
+    const double spacing = 2.0;
+    final barCount = amplitudes.length;
+    final double maxAvailableWidth =
+        math.max(0, size.width - spacing * (barCount - 1));
+    final double barWidth = math.max(2.0, maxAvailableWidth / barCount);
+    final double minBarHeight = size.height * 0.08;
+
+    var x = 0.0;
+    for (final value in amplitudes) {
+      final double normalized = value.clamp(0.0, 1.0);
+      final double targetHeight =
+          math.max(minBarHeight, normalized * size.height);
+      final double top = (size.height - targetHeight) / 2;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, top, barWidth, targetHeight),
+        Radius.circular(barWidth / 2),
+      );
+      canvas.drawRRect(rect, paint);
+      x += barWidth + spacing;
+      if (x > size.width) break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) {
+    return oldDelegate.amplitudes != amplitudes || oldDelegate.color != color;
   }
 }
