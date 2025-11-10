@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../data/diary_repository.dart';
 import '../models/diary_entry.dart';
+import '../widgets/collapsible_section.dart';
 import '../widgets/mood_selector.dart';
 import '../widgets/notebook_editor.dart';
+import '../widgets/theme_selector_action.dart';
 
 /// Form screen for creating or editing a diary entry.
 class AddEntryScreen extends StatefulWidget {
@@ -169,16 +171,14 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
   Widget _buildCommonMetaSection(BuildContext context) {
     final theme = Theme.of(context);
+    final mood = _selectedMood ?? Mood.happy;
+    final surfaceColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.85);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'How was your day?',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
@@ -196,11 +196,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
-                  'Mood: ${(_selectedMood ?? Mood.happy).emoji}',
+                  'Mood: ${mood.emoji} ${mood.label}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -219,7 +219,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
   }
 
-  Widget _buildNotebookHeader(BuildContext context) {
+  Widget _buildNotebookMetaSection(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final outlineColor = onSurface.withValues(alpha: 0.28);
@@ -227,8 +227,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildModeSelector(context),
-        const SizedBox(height: 20),
         Text(
           'Notebook title',
           style: theme.textTheme.titleMedium?.copyWith(
@@ -244,6 +242,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             hintText: 'Give this notebook entry a short title',
           ),
           textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 20),
         Text(
@@ -281,7 +280,22 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
   }
 
+  Mood get _resolvedMood => _selectedMood ?? Mood.happy;
+
+  String get _dateLabel =>
+      '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+
+  String get _notebookDetailsSummary {
+    final title = _contentController.text.trim();
+    final titleLabel =
+        title.isEmpty ? 'Untitled notebook' : title.replaceAll('\n', ' ');
+    final mood = _resolvedMood;
+    return '$titleLabel • $_dateLabel • ${mood.emoji} ${mood.label}';
+  }
+
   Widget _buildStandardLayout(BuildContext context) {
+    final mood = _resolvedMood;
+
     return SingleChildScrollView(
       key: const ValueKey('standard-layout'),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -290,12 +304,16 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         children: [
           _buildModeSelector(context),
           const SizedBox(height: 20),
-          _buildCommonMetaSection(context),
-          const SizedBox(height: 24),
+          CollapsibleSection(
+            title: 'Date & mood',
+            subtitle: '$_dateLabel • ${mood.emoji} ${mood.label}',
+            child: _buildCommonMetaSection(context),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             key: const ValueKey('standard-content-field'),
             controller: _contentController,
-            minLines: 8,
+            minLines: 10,
             maxLines: null,
             decoration: const InputDecoration(
               hintText: 'Dear diary...',
@@ -327,20 +345,31 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildNotebookHeader(context),
-              const SizedBox(height: 16),
-              Text(
-                'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.7),
+              _buildModeSelector(context),
+              const SizedBox(height: 20),
+              CollapsibleSection(
+                title: 'Notebook details',
+                subtitle: _notebookDetailsSummary,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildNotebookMetaSection(context),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.7),
+                          ),
                     ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -458,6 +487,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Update Diary' : 'New Diary'),
         actions: [
+          const ThemeSelectorAction(),
           IconButton(
             onPressed: _saveEntry,
             icon: const Icon(Icons.check_rounded),

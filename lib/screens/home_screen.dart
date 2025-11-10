@@ -4,10 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../data/diary_repository.dart';
 import '../models/diary_entry.dart';
-import '../theme/theme_controller.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/mood_selector.dart';
-import '../widgets/theme_selector_sheet.dart';
+import '../widgets/theme_selector_action.dart';
 import 'add_entry_screen.dart';
 import 'entry_detail_screen.dart';
 
@@ -73,17 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _sortDescending = !_sortDescending);
   }
 
-  void _openThemeSelector() {
-    final controller = ThemeControllerProvider.of(context);
-    final dialogTheme = Theme.of(context).dialogTheme;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: dialogTheme.backgroundColor,
-      shape: dialogTheme.shape,
-      builder: (_) => ThemeSelectorSheet(controller: controller),
-    );
-  }
-
   void _openAddEntry() {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -114,12 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pastel Diary'),
-        actions: [
-          IconButton(
-            tooltip: 'Choose theme',
-            icon: const Icon(Icons.palette_rounded),
-            onPressed: _openThemeSelector,
-          ),
+        actions: const [
+          ThemeSelectorAction(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

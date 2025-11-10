@@ -11,6 +11,7 @@ import 'package:file_selector/file_selector.dart';
 
 import '../models/diary_entry.dart';
 import 'notebook_page_scaffold.dart';
+import 'collapsible_section.dart';
 
 class NotebookEditorValue {
   const NotebookEditorValue({
@@ -339,6 +340,14 @@ class _NotebookEditorState extends State<NotebookEditor> {
     _notifyChanged();
   }
 
+  String _colorHex(Color color) {
+    final value = color.toARGB32() & 0x00FFFFFF;
+    return '#${value.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
+
+  String get _styleSummary =>
+      'Font ${_appearance.fontFamily} • Page ${_colorHex(_appearance.pageColor)}';
+
   Color _resolveNotebookTextColor(ThemeData theme) {
     final brightness =
         ThemeData.estimateBrightnessForColor(_appearance.pageColor);
@@ -404,102 +413,92 @@ class _NotebookEditorState extends State<NotebookEditor> {
       alignment: Alignment.center,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width),
-        child: Card(
+        child: CollapsibleSection(
+          title: 'Notebook style',
+          subtitle: _styleSummary,
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          elevation: 0,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Notebook style',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildColorPicker(
+                label: 'Page color',
+                selected: _appearance.pageColor,
+                onColorSelected: (color) => _updateAppearance(pageColor: color),
+              ),
+              const SizedBox(height: 16),
+              _buildColorPicker(
+                label: 'Line color',
+                selected: _appearance.lineColor,
+                onColorSelected: (color) => _updateAppearance(lineColor: color),
+              ),
+              const SizedBox(height: 16),
+              _buildColorPicker(
+                label: 'Cover color',
+                selected: _appearance.coverColor,
+                onColorSelected: (color) =>
+                    _updateAppearance(coverColor: color),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_appearance.fontFamily),
+                initialValue: _appearance.fontFamily,
+                decoration: const InputDecoration(
+                  labelText: 'Notebook font',
+                  border: OutlineInputBorder(),
+                ),
+                items: _fontChoices.map((font) {
+                  return DropdownMenuItem<String>(
+                    value: font,
+                    child: Text(
+                      font,
+                      style: GoogleFonts.getFont(font),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    _updateAppearance(fontFamily: value);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickCoverPhoto,
+                      icon: const Icon(Icons.photo_library_rounded),
+                      label: const Text('Choose cover photo'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: onSurface,
+                        side: BorderSide(color: outlineColor),
                       ),
-                ),
-                const SizedBox(height: 12),
-                _buildColorPicker(
-                  label: 'Page color',
-                  selected: _appearance.pageColor,
-                  onColorSelected: (color) =>
-                      _updateAppearance(pageColor: color),
-                ),
-                const SizedBox(height: 16),
-                _buildColorPicker(
-                  label: 'Line color',
-                  selected: _appearance.lineColor,
-                  onColorSelected: (color) =>
-                      _updateAppearance(lineColor: color),
-                ),
-                const SizedBox(height: 16),
-                _buildColorPicker(
-                  label: 'Cover color',
-                  selected: _appearance.coverColor,
-                  onColorSelected: (color) =>
-                      _updateAppearance(coverColor: color),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(_appearance.fontFamily),
-                  initialValue: _appearance.fontFamily,
-                  decoration: const InputDecoration(
-                    labelText: 'Notebook font',
-                    border: OutlineInputBorder(),
+                    ),
                   ),
-                  items: _fontChoices.map((font) {
-                    return DropdownMenuItem<String>(
-                      value: font,
-                      child: Text(
-                        font,
-                        style: GoogleFonts.getFont(font),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      _updateAppearance(fontFamily: value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickCoverPhoto,
-                        icon: const Icon(Icons.photo_library_rounded),
-                        label: const Text('Choose cover photo'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: onSurface,
-                          side: BorderSide(color: outlineColor),
+                  const SizedBox(width: 12),
+                  if (_appearance.coverImagePath != null)
+                    SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(_appearance.coverImagePath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, __) {
+                            return Container(
+                              color: Colors.black12,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.photo_rounded),
+                            );
+                          },
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    if (_appearance.coverImagePath != null)
-                      SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(_appearance.coverImagePath!),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, _, __) {
-                              return Container(
-                                color: Colors.black12,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.photo_rounded),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

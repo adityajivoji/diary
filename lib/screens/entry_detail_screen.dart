@@ -6,6 +6,7 @@ import '../data/diary_repository.dart';
 import '../models/diary_entry.dart';
 import 'add_entry_screen.dart';
 import '../widgets/notebook_viewer.dart';
+import '../widgets/theme_selector_action.dart';
 
 /// Shows a single diary entry in detail.
 class EntryDetailScreen extends StatelessWidget {
@@ -44,6 +45,7 @@ class EntryDetailScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text('Your memory'),
             actions: [
+              const ThemeSelectorAction(),
               IconButton(
                 tooltip: 'Edit',
                 icon: const Icon(Icons.edit_rounded),
