@@ -24,18 +24,32 @@ class NotebookViewer extends StatefulWidget {
 
 class _NotebookViewerState extends State<NotebookViewer> {
   late final PageController _controller;
-  late final NotebookAppearance _appearance;
-  late final List<NotebookSpread> _spreads;
+  static final List<NotebookSpread> _fallbackSpreads =
+      List<NotebookSpread>.unmodifiable(<NotebookSpread>[NotebookSpread()]);
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _spreads = widget.spreads.isEmpty
-        ? <NotebookSpread>[NotebookSpread()]
-        : widget.spreads;
-    _appearance = widget.appearance ?? NotebookAppearance.defaults();
     _controller = PageController();
+  }
+
+  @override
+  void didUpdateWidget(covariant NotebookViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final lastIndex = _effectiveSpreads.length - 1;
+    final shouldClampPage = _currentPage > lastIndex;
+    if (shouldClampPage) {
+      _currentPage = lastIndex;
+    }
+
+    if (shouldClampPage && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controller.hasClients) {
+          _controller.jumpToPage(_currentPage);
+        }
+      });
+    }
   }
 
   @override
@@ -44,7 +58,18 @@ class _NotebookViewerState extends State<NotebookViewer> {
     super.dispose();
   }
 
+  List<NotebookSpread> get _effectiveSpreads {
+    if (widget.spreads.isEmpty) {
+      return _fallbackSpreads;
+    }
+    return widget.spreads;
+  }
+
+  NotebookAppearance get _effectiveAppearance =>
+      widget.appearance ?? NotebookAppearance.defaults();
+
   void _goToPage() {
+    final totalPages = _effectiveSpreads.length;
     final controller =
         TextEditingController(text: (_currentPage + 1).toString());
     showDialog<void>(
@@ -67,7 +92,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
                 final page = int.tryParse(controller.text);
                 if (page == null ||
                     page < 1 ||
-                    page > _spreads.length ||
+                    page > totalPages ||
                     !mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Invalid page number.')),
@@ -89,7 +114,11 @@ class _NotebookViewerState extends State<NotebookViewer> {
     );
   }
 
-  Widget _buildCoverPreview(double width, double height) {
+  Widget _buildCoverPreview(
+    NotebookAppearance appearance,
+    double width,
+    double height,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Align(
@@ -99,7 +128,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
           height: height,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: _appearance.coverColor,
+              color: appearance.coverColor,
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
@@ -111,7 +140,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(28),
-              child: _appearance.coverImagePath == null
+              child: appearance.coverImagePath == null
                   ? Center(
                       child: Text(
                         'Notebook cover',
@@ -123,7 +152,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
                       ),
                     )
                   : Image.file(
-                      File(_appearance.coverImagePath!),
+                      File(appearance.coverImagePath!),
                       fit: BoxFit.cover,
                       errorBuilder: (context, _, __) {
                         return Center(
@@ -144,9 +173,9 @@ class _NotebookViewerState extends State<NotebookViewer> {
     );
   }
 
-  Color _resolveNotebookTextColor() {
+  Color _resolveNotebookTextColor(NotebookAppearance appearance) {
     final brightness =
-        ThemeData.estimateBrightnessForColor(_appearance.pageColor);
+        ThemeData.estimateBrightnessForColor(appearance.pageColor);
     if (brightness == Brightness.dark) {
       return Colors.white.withValues(alpha: 0.92);
     }
@@ -202,14 +231,13 @@ class _NotebookViewerState extends State<NotebookViewer> {
     }
   }
 
-  Widget _buildSpread(int index) {
-    final spread = _spreads[index];
+  Widget _buildSpread(NotebookSpread spread, NotebookAppearance appearance) {
     final font = GoogleFonts.getFont(
-      _appearance.fontFamily,
+      appearance.fontFamily,
       fontSize: 18,
       height: 1.6,
     );
-    final textColor = _resolveNotebookTextColor();
+    final textColor = _resolveNotebookTextColor(appearance);
     final lineSpacing =
         ((font.fontSize ?? 18) * (font.height ?? 1.6)).clamp(20, 64).toDouble();
 
@@ -238,26 +266,39 @@ class _NotebookViewerState extends State<NotebookViewer> {
                   children: [
                     Expanded(
                       child: NotebookPlainPage(
-                        backgroundColor: _appearance.pageColor,
-                        child: spread.attachments.isEmpty
-                            ? const SizedBox.expand()
-                            : SingleChildScrollView(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: spread.attachments
-                                      .map(_buildAttachment)
-                                      .toList(),
+                        backgroundColor: appearance.pageColor,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (spread.attachments.isEmpty) {
+                              return const SizedBox.expand();
+                            }
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: spread.attachments
+                                        .map(_buildAttachment)
+                                        .toList(),
+                                  ),
                                 ),
                               ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: NotebookLinedPage(
-                        backgroundColor: _appearance.pageColor,
-                        lineColor: _appearance.lineColor,
+                        backgroundColor: appearance.pageColor,
+                        lineColor: appearance.lineColor,
                         lineSpacing: lineSpacing,
                         child: Text(
                           spread.text.isEmpty
@@ -281,7 +322,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
     );
   }
 
-  Widget _buildControls(double width) {
+  Widget _buildControls(int spreadCount, double width) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final disabledColor = onSurface.withValues(alpha: 0.32);
@@ -314,7 +355,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
                 icon: const Icon(Icons.arrow_forward_ios_rounded),
                 color: onSurface,
                 disabledColor: disabledColor,
-                onPressed: _currentPage < _spreads.length - 1
+                onPressed: _currentPage < spreadCount - 1
                     ? () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),
@@ -327,7 +368,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
               OutlinedButton.icon(
                 onPressed: _goToPage,
                 icon: const Icon(Icons.menu_book_rounded),
-                label: Text('Page ${_currentPage + 1}/${_spreads.length}'),
+                label: Text('Page ${_currentPage + 1}/$spreadCount'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: onSurface,
                   side: BorderSide(color: outlineColor),
@@ -340,7 +381,12 @@ class _NotebookViewerState extends State<NotebookViewer> {
     );
   }
 
-  Widget _buildPager(double width, double height) {
+  Widget _buildPager(
+    List<NotebookSpread> spreads,
+    NotebookAppearance appearance,
+    double width,
+    double height,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Align(
@@ -355,8 +401,9 @@ class _NotebookViewerState extends State<NotebookViewer> {
               setState(() => _currentPage = page);
             },
             physics: const BouncingScrollPhysics(),
-            itemCount: _spreads.length,
-            itemBuilder: (context, index) => _buildSpread(index),
+            itemCount: spreads.length,
+            itemBuilder: (context, index) =>
+                _buildSpread(spreads[index], appearance),
           ),
         ),
       ),
@@ -365,6 +412,8 @@ class _NotebookViewerState extends State<NotebookViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final spreads = _effectiveSpreads;
+    final appearance = _effectiveAppearance;
     return LayoutBuilder(
       builder: (context, constraints) {
         final hasFiniteWidth = constraints.maxWidth.isFinite;
@@ -389,9 +438,9 @@ class _NotebookViewerState extends State<NotebookViewer> {
         final content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildCoverPreview(spreadWidth, coverHeight),
-            _buildPager(spreadWidth, pagerHeight),
-            _buildControls(spreadWidth),
+            _buildCoverPreview(appearance, spreadWidth, coverHeight),
+            _buildPager(spreads, appearance, spreadWidth, pagerHeight),
+            _buildControls(spreads.length, spreadWidth),
             const SizedBox(height: 24),
           ],
         );
