@@ -1315,6 +1315,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
     final border = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
     );
+    final controlColor = _appearance.lineColor;
+    final disabledControlColor = controlColor.withValues(alpha: 0.4);
     switch (attachment.type) {
       case NotebookAttachmentType.image:
         final displayState = _attachmentDisplayStates.putIfAbsent(
@@ -1406,12 +1408,15 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Tooltip(
                               message: 'Shrink image',
                               child: IconButton(
+                                style: IconButton.styleFrom(
+                                  foregroundColor: controlColor,
+                                  disabledForegroundColor: disabledControlColor,
+                                ),
                                 icon: const Icon(Icons.zoom_out_rounded),
                                 onPressed: canZoomOut
                                     ? () =>
@@ -1420,7 +1425,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
                               child: Text(
                                 '${(scale * 100).round()}%',
                                 style: Theme.of(context)
@@ -1438,8 +1444,12 @@ class _NotebookEditorState extends State<NotebookEditor> {
                             Tooltip(
                               message: 'Reset size',
                               child: IconButton(
-                                icon:
-                                    const Icon(Icons.center_focus_strong_rounded),
+                                style: IconButton.styleFrom(
+                                  foregroundColor: controlColor,
+                                  disabledForegroundColor: disabledControlColor,
+                                ),
+                                icon: const Icon(
+                                    Icons.center_focus_strong_rounded),
                                 onPressed: scale == 1.0
                                     ? null
                                     : () => _setAttachmentScale(attachment.id, 1.0),
@@ -1448,6 +1458,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
                             Tooltip(
                               message: 'Enlarge image',
                               child: IconButton(
+                                style: IconButton.styleFrom(
+                                  foregroundColor: controlColor,
+                                  disabledForegroundColor: disabledControlColor,
+                                ),
                                 icon: const Icon(Icons.zoom_in_rounded),
                                 onPressed: canZoomIn
                                     ? () =>
@@ -1518,13 +1532,17 @@ class _NotebookEditorState extends State<NotebookEditor> {
                           : IconButton(
                               iconSize: 36,
                               padding: EdgeInsets.zero,
+                              style: IconButton.styleFrom(
+                                foregroundColor: controlColor,
+                                disabledForegroundColor: disabledControlColor,
+                              ),
                               onPressed: () =>
                                   _handleAudioAttachmentPressed(attachment),
                               icon: Icon(
                                 isActive && _isAudioPlaying
                                     ? Icons.pause_circle_filled_rounded
                                     : Icons.play_circle_filled_rounded,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: controlColor,
                               ),
                             ),
                     ),
@@ -1538,6 +1556,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       ),
                     ),
                     IconButton(
+                      style: IconButton.styleFrom(
+                        foregroundColor: controlColor,
+                        disabledForegroundColor: disabledControlColor,
+                      ),
                       icon: const Icon(Icons.close_rounded),
                       onPressed: () => _removeAttachment(
                         spreadIndex,
@@ -1600,12 +1622,15 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       Tooltip(
                         message: 'Rewind 5 seconds',
                         child: IconButton(
+                          style: IconButton.styleFrom(
+                            foregroundColor: controlColor,
+                            disabledForegroundColor: disabledControlColor,
+                          ),
                           icon: const Icon(Icons.replay_5_rounded),
                           onPressed: controlsDisabled
                               ? null
-                              : () => _seekAudioBy(
-                                    const Duration(seconds: -5),
-                                  ),
+                              : () =>
+                                  _seekAudioBy(const Duration(seconds: -5)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1613,6 +1638,12 @@ class _NotebookEditorState extends State<NotebookEditor> {
                         message: _isAudioPlaying ? 'Pause' : 'Play',
                         child: IconButton.filled(
                           iconSize: 32,
+                          style: IconButton.styleFrom(
+                            foregroundColor: controlColor,
+                            disabledForegroundColor: disabledControlColor,
+                            backgroundColor:
+                                controlColor.withValues(alpha: 0.18),
+                          ),
                           onPressed: controlsDisabled
                               ? null
                               : () => _handleAudioAttachmentPressed(attachment),
@@ -1627,6 +1658,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       Tooltip(
                         message: 'Stop playback',
                         child: IconButton(
+                          style: IconButton.styleFrom(
+                            foregroundColor: controlColor,
+                            disabledForegroundColor: disabledControlColor,
+                          ),
                           icon: const Icon(Icons.stop_rounded),
                           onPressed: controlsDisabled
                               ? null
@@ -1637,12 +1672,14 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       Tooltip(
                         message: 'Skip forward 5 seconds',
                         child: IconButton(
+                          style: IconButton.styleFrom(
+                            foregroundColor: controlColor,
+                            disabledForegroundColor: disabledControlColor,
+                          ),
                           icon: const Icon(Icons.forward_5_rounded),
                           onPressed: controlsDisabled
                               ? null
-                              : () => _seekAudioBy(
-                                    const Duration(seconds: 5),
-                                  ),
+                              : () => _seekAudioBy(const Duration(seconds: 5)),
                         ),
                       ),
                     ],
