@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -69,6 +70,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
     'Raleway',
   ];
   static const int _maxAmplitudeSamples = 40;
+  static const int _defaultSampleRate = 44100;
+  static const int _defaultBitRate = 128000;
 
   late final ImagePicker _imagePicker;
   final AudioRecorder _recorder = AudioRecorder();
@@ -190,7 +193,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
         XTypeGroup(
           label: 'Audio',
           mimeTypes: ['audio/*'],
-          extensions: ['m4a', 'mp3', 'aac', 'wav'],
+          extensions: ['m4a', 'mp3', 'aac', 'wav', 'webm'],
         ),
       ],
     );
@@ -208,7 +211,11 @@ class _NotebookEditorState extends State<NotebookEditor> {
     }
     String importPath;
     try {
-      importPath = await _copyToAudioStorage(path);
+      if (kIsWeb) {
+        importPath = path;
+      } else {
+        importPath = await _copyToAudioStorage(path);
+      }
     } catch (error) {
       debugPrint('Failed to import audio file: $error');
       if (mounted) {
@@ -421,15 +428,33 @@ class _NotebookEditorState extends State<NotebookEditor> {
       }
       return;
     }
-    final directory = await _getAudioStorageDirectory();
-    final fileName =
-        'notebook_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    final filePath = p.join(directory.path, fileName);
-    const config = RecordConfig(
-      encoder: AudioEncoder.aacLc,
-      bitRate: 128000,
-      sampleRate: 44100,
-    );
+    final recordingSetup = await _prepareRecordingSetup();
+    if (recordingSetup == null) {
+      debugPrint('No supported audio encoder available for this platform.');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Recording is not supported on this device or browser.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    late final String filePath;
+    if (kIsWeb) {
+      filePath =
+          _buildWebRecordingPath(timestamp, recordingSetup.fileExtension);
+    } else {
+      final directory = await _getAudioStorageDirectory();
+      final fileName =
+          'notebook_audio_$timestamp.${recordingSetup.fileExtension}';
+      filePath = p.join(directory.path, fileName);
+    }
+    final config = recordingSetup.config;
 
     try {
       await _recorder.start(config, path: filePath);
@@ -511,18 +536,24 @@ class _NotebookEditorState extends State<NotebookEditor> {
 
     if (path == null) return;
 
-    var finalPath = _expandUserPath(path);
-    final storageDir = await _getAudioStorageDirectory();
-    if (!p.isWithin(storageDir.path, finalPath)) {
-      final file = File(finalPath);
-      if (await file.exists()) {
-        try {
-          finalPath = await _copyToAudioStorage(finalPath);
-        } catch (error, stackTrace) {
-          debugPrint('Failed to move audio file: $error');
-          debugPrint('$stackTrace');
+    late final String finalPath;
+    if (kIsWeb) {
+      finalPath = path;
+    } else {
+      var normalizedPath = _expandUserPath(path);
+      final storageDir = await _getAudioStorageDirectory();
+      if (!p.isWithin(storageDir.path, normalizedPath)) {
+        final file = File(normalizedPath);
+        if (await file.exists()) {
+          try {
+            normalizedPath = await _copyToAudioStorage(normalizedPath);
+          } catch (error, stackTrace) {
+            debugPrint('Failed to move audio file: $error');
+            debugPrint('$stackTrace');
+          }
         }
       }
+      finalPath = normalizedPath;
     }
 
     final attachment = NotebookAttachment(
@@ -550,6 +581,11 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   Future<String> _copyToAudioStorage(String sourcePath) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'Audio storage copying is not supported on the web platform.',
+      );
+    }
     final normalizedSource = _expandUserPath(sourcePath);
     final file = File(normalizedSource);
     if (!await file.exists()) {
@@ -578,6 +614,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   Future<String?> _tryRecoverAudioFile(NotebookAttachment attachment) async {
+    if (kIsWeb) {
+      return null;
+    }
     final normalized = _expandUserPath(attachment.path);
     final existing = File(normalized);
     if (await existing.exists()) {
@@ -617,6 +656,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   String _expandUserPath(String path) {
+    if (kIsWeb) {
+      return path;
+    }
     if (path.startsWith('~')) {
       final home = Platform.environment['HOME'];
       if (home != null && home.isNotEmpty) {
@@ -639,6 +681,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
     _hasCheckedRecordingDependencies = true;
     _recordDependenciesAvailable = true;
 
+    if (kIsWeb) {
+      return true;
+    }
+
     if (!Platform.isLinux) {
       return true;
     }
@@ -650,6 +696,53 @@ class _NotebookEditorState extends State<NotebookEditor> {
       _recordDependenciesAvailable = false;
     }
     return _recordDependenciesAvailable;
+  }
+
+  Future<_RecorderSetup?> _prepareRecordingSetup() async {
+    const encoderOptions = <_RecorderEncoderOption>[
+      _RecorderEncoderOption(
+        encoder: AudioEncoder.aacLc,
+        fileExtension: 'm4a',
+      ),
+      _RecorderEncoderOption(
+        encoder: AudioEncoder.opus,
+        fileExtension: 'webm',
+        sampleRate: 48000,
+      ),
+      _RecorderEncoderOption(
+        encoder: AudioEncoder.wav,
+        fileExtension: 'wav',
+        bitRate: 1411200,
+      ),
+    ];
+
+    for (final option in encoderOptions) {
+      try {
+        final supported = await _recorder.isEncoderSupported(option.encoder);
+        if (!supported) continue;
+
+        final config = RecordConfig(
+          encoder: option.encoder,
+          bitRate: option.bitRate ?? _defaultBitRate,
+          sampleRate: option.sampleRate ?? _defaultSampleRate,
+        );
+        return _RecorderSetup(
+          config: config,
+          fileExtension: option.fileExtension,
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Failed to check encoder support for ${option.encoder}: $error',
+        );
+        debugPrint('$stackTrace');
+      }
+    }
+
+    return null;
+  }
+
+  String _buildWebRecordingPath(int timestamp, String extension) {
+    return 'web_recording_$timestamp.$extension';
   }
 
   Uri _resolveAttachmentUri(String path) {
@@ -1527,6 +1620,30 @@ class _NotebookEditorState extends State<NotebookEditor> {
       },
     );
   }
+}
+
+class _RecorderEncoderOption {
+  const _RecorderEncoderOption({
+    required this.encoder,
+    required this.fileExtension,
+    this.bitRate,
+    this.sampleRate,
+  });
+
+  final AudioEncoder encoder;
+  final String fileExtension;
+  final int? bitRate;
+  final int? sampleRate;
+}
+
+class _RecorderSetup {
+  const _RecorderSetup({
+    required this.config,
+    required this.fileExtension,
+  });
+
+  final RecordConfig config;
+  final String fileExtension;
 }
 
 class _WaveformPainter extends CustomPainter {
