@@ -37,6 +37,7 @@ class NotebookLinedPage extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.lineSpacing = 28,
+    this.lineCount,
   });
 
   final Color backgroundColor;
@@ -44,6 +45,7 @@ class NotebookLinedPage extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double lineSpacing;
+  final int? lineCount;
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +66,8 @@ class NotebookLinedPage extends StatelessWidget {
             lineColor: lineColor,
             lineSpacing: lineSpacing,
             topInset: resolvedPadding.top,
+            bottomInset: resolvedPadding.bottom,
+            lineCount: lineCount,
           ),
           child: SizedBox.expand(
             child: Padding(
@@ -82,11 +86,15 @@ class _NotebookLinesPainter extends CustomPainter {
     required this.lineColor,
     required this.lineSpacing,
     required this.topInset,
+    required this.bottomInset,
+    required this.lineCount,
   });
 
   final Color lineColor;
   final double lineSpacing;
   final double topInset;
+  final double bottomInset;
+  final int? lineCount;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -95,8 +103,39 @@ class _NotebookLinesPainter extends CustomPainter {
       ..strokeWidth = 1;
     final spacing = lineSpacing <= 0 ? 28.0 : lineSpacing;
     final double start = topInset.clamp(0, size.height.toDouble()).toDouble();
-    for (var y = start; y <= size.height; y += spacing) {
-      final double dy = y.toDouble();
+    final double effectiveBottom =
+        size.height - bottomInset.clamp(0, size.height.toDouble());
+    final double drawableHeight =
+        (effectiveBottom - start).clamp(0, size.height);
+
+    if (lineCount != null && lineCount! > 0 && drawableHeight > 0) {
+      final int clampedCount =
+          lineCount! < 1 ? 1 : (lineCount! > 200 ? 200 : lineCount!);
+      if (clampedCount == 1) {
+        final dy = start;
+        canvas.drawLine(
+          Offset(0, dy),
+          Offset(size.width, dy),
+          paint,
+        );
+        return;
+      }
+      final int effectiveCount = clampedCount;
+      final double calculatedSpacing = drawableHeight / (effectiveCount - 1);
+      for (var i = 0; i < effectiveCount; i++) {
+        final double dy = start + (calculatedSpacing * i);
+        if (dy > effectiveBottom + 0.5) continue;
+        canvas.drawLine(
+          Offset(0, dy),
+          Offset(size.width, dy),
+          paint,
+        );
+      }
+      return;
+    }
+
+    for (var y = start; y <= effectiveBottom + 0.5; y += spacing) {
+      final double dy = y;
       canvas.drawLine(
         Offset(0, dy),
         Offset(size.width, dy),
@@ -109,6 +148,8 @@ class _NotebookLinesPainter extends CustomPainter {
   bool shouldRepaint(covariant _NotebookLinesPainter oldDelegate) {
     return oldDelegate.lineColor != lineColor ||
         oldDelegate.lineSpacing != lineSpacing ||
-        oldDelegate.topInset != topInset;
+        oldDelegate.topInset != topInset ||
+        oldDelegate.bottomInset != bottomInset ||
+        oldDelegate.lineCount != lineCount;
   }
 }

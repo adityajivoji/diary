@@ -464,7 +464,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
   }
 
   void _goToPage() {
-    final totalPages = _effectiveSpreads.length;
+    final totalPages = _effectiveSpreads.length + 1;
     final controller =
         TextEditingController(text: (_currentPage + 1).toString());
     showDialog<void>(
@@ -506,77 +506,105 @@ class _NotebookViewerState extends State<NotebookViewer> {
     );
   }
 
-  Widget _buildCoverPreview(
-    NotebookAppearance appearance,
-    double width,
-    double height,
-  ) {
+  Widget _buildCoverPage(NotebookAppearance appearance) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Align(
-        alignment: Alignment.center,
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: appearance.coverColor,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 14,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: appearance.coverImagePath == null
-                  ? Center(
-                      child: Text(
-                        'Notebook cover',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontWeight: FontWeight.w600,
-                                ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double availableWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : math.min(MediaQuery.of(context).size.width, 1600.0);
+          return Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: availableWidth,
+              child: AspectRatio(
+                aspectRatio: 3 / 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    color: Colors.black.withValues(alpha: 0.02),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 8),
                       ),
-                    )
-                  : kIsWeb
-                      ? Image.network(
-                          appearance.coverImagePath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, _, __) {
-                            return Center(
-                              child: Text(
-                                'Cover photo missing',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(color: Colors.white),
-                              ),
-                            );
-                          },
-                        )
-                      : Image.file(
-                          File(appearance.coverImagePath!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, _, __) {
-                            return Center(
-                              child: Text(
-                                'Cover photo missing',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(color: Colors.white),
-                              ),
-                            );
-                          },
+                    ],
+                  ),
+                  child: Center(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.62,
+                      heightFactor: 0.78,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: appearance.coverColor,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              blurRadius: 18,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
                         ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: appearance.coverImagePath == null
+                              ? Center(
+                                  child: Text(
+                                    'Notebook cover',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.85),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                )
+                              : kIsWeb
+                                  ? Image.network(
+                                      appearance.coverImagePath!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, _, __) {
+                                        return Center(
+                                          child: Text(
+                                            'Cover photo missing',
+                                            style:
+                                                textTheme.titleMedium?.copyWith(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.92),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : Image.file(
+                                      File(appearance.coverImagePath!),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, _, __) {
+                                        return Center(
+                                          child: Text(
+                                            'Cover photo missing',
+                                            style:
+                                                textTheme.titleMedium?.copyWith(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.92),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -921,95 +949,169 @@ class _NotebookViewerState extends State<NotebookViewer> {
       height: 1.6,
     );
     final textColor = _resolveNotebookTextColor(appearance);
-    final lineSpacing =
-        ((font.fontSize ?? 18) * (font.height ?? 1.6)).clamp(20, 64).toDouble();
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 900),
-          child: AspectRatio(
-            aspectRatio: 3 / 2,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                color: Colors.black.withValues(alpha: 0.02),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: NotebookPlainPage(
-                        backgroundColor: appearance.pageColor,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (spread.attachments.isEmpty) {
-                              return const SizedBox.expand();
-                            }
-                            return SingleChildScrollView(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight,
-                                ),
-                                child: Align(
-                                  alignment: Alignment.topLeft,
-                                  child: Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: spread.attachments
-                                        .map(_buildAttachment)
-                                        .toList(),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double availableWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : math.min(MediaQuery.of(context).size.width, 1600.0);
+          const int targetLineCount = 21;
+          final double pageHeight = availableWidth * (2 / 3);
+          final double innerHeight = math.max(0, pageHeight - 48);
+          final double drawableHeight = math.max(0, innerHeight - 32);
+          final double fallbackSpacing =
+              ((font.fontSize ?? 18) * (font.height ?? 1.6)).clamp(12, 96);
+          final double lineSpacing = (targetLineCount > 1 && drawableHeight > 0)
+              ? drawableHeight / (targetLineCount - 1)
+              : fallbackSpacing;
+          final double textHeightFactor = (font.fontSize ?? 18) > 0
+              ? lineSpacing / (font.fontSize ?? 18)
+              : (font.height ?? 1.6);
+          final textStyle = font.copyWith(
+            color: spread.text.isEmpty
+                ? textColor.withValues(alpha: 0.6)
+                : textColor,
+            height: textHeightFactor,
+          );
+          return Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: availableWidth,
+              child: AspectRatio(
+                aspectRatio: 3 / 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    color: Colors.black.withValues(alpha: 0.02),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 8),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: NotebookLinedPage(
-                        backgroundColor: appearance.pageColor,
-                        lineColor: appearance.lineColor,
-                        lineSpacing: lineSpacing,
-                        child: Text(
-                          spread.text.isEmpty
-                              ? 'Nothing written on this page yet.'
-                              : spread.text,
-                          style: font.copyWith(
-                            color: spread.text.isEmpty
-                                ? textColor.withValues(alpha: 0.6)
-                                : textColor,
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: NotebookPlainPage(
+                            backgroundColor: appearance.pageColor,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                if (spread.attachments.isEmpty) {
+                                  return const SizedBox.expand();
+                                }
+                                return SingleChildScrollView(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: constraints.maxHeight,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.topLeft,
+                                      child: Wrap(
+                                        spacing: 12,
+                                        runSpacing: 12,
+                                        children: spread.attachments
+                                            .map(_buildAttachment)
+                                            .toList(),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: NotebookLinedPage(
+                            backgroundColor: appearance.pageColor,
+                            lineColor: appearance.lineColor,
+                            lineSpacing: lineSpacing,
+                            lineCount: targetLineCount,
+                            child: Text(
+                              spread.text.isEmpty
+                                  ? 'Nothing written on this page yet.'
+                                  : spread.text,
+                              style: textStyle,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildControls(int spreadCount, double width) {
+  List<Widget> _buildViewerControlButtons({
+    required int totalPages,
+    required Color onSurface,
+    required Color disabledColor,
+    required Color outlineColor,
+  }) {
+    return [
+      IconButton(
+        tooltip: 'Previous page',
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        color: onSurface,
+        disabledColor: disabledColor,
+        onPressed: _currentPage > 0
+            ? () {
+                _controller.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            : null,
+      ),
+      IconButton(
+        tooltip: 'Next page',
+        icon: const Icon(Icons.arrow_forward_ios_rounded),
+        color: onSurface,
+        disabledColor: disabledColor,
+        onPressed: _currentPage < totalPages - 1
+            ? () {
+                _controller.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            : null,
+      ),
+      const SizedBox(width: 12),
+      OutlinedButton.icon(
+        onPressed: totalPages > 1 ? _goToPage : null,
+        icon: const Icon(Icons.menu_book_rounded),
+        label: Text('Page ${_currentPage + 1}/$totalPages'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: onSurface,
+          side: BorderSide(color: outlineColor),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildControls(int totalPages, double width) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final disabledColor = onSurface.withValues(alpha: 0.32);
     final outlineColor = onSurface.withValues(alpha: 0.28);
+    final controls = _buildViewerControlButtons(
+      totalPages: totalPages,
+      onSurface: onSurface,
+      disabledColor: disabledColor,
+      outlineColor: outlineColor,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1017,48 +1119,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
         alignment: Alignment.center,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: width),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Previous page',
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                color: onSurface,
-                disabledColor: disabledColor,
-                onPressed: _currentPage > 0
-                    ? () {
-                        _controller.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    : null,
-              ),
-              IconButton(
-                tooltip: 'Next page',
-                icon: const Icon(Icons.arrow_forward_ios_rounded),
-                color: onSurface,
-                disabledColor: disabledColor,
-                onPressed: _currentPage < spreadCount - 1
-                    ? () {
-                        _controller.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: _goToPage,
-                icon: const Icon(Icons.menu_book_rounded),
-                label: Text('Page ${_currentPage + 1}/$spreadCount'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: onSurface,
-                  side: BorderSide(color: outlineColor),
-                ),
-              ),
-            ],
-          ),
+          child: Row(children: controls),
         ),
       ),
     );
@@ -1070,25 +1131,24 @@ class _NotebookViewerState extends State<NotebookViewer> {
     double width,
     double height,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Align(
-        alignment: Alignment.center,
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: PageView.builder(
-            controller: _controller,
-            clipBehavior: Clip.none,
-            onPageChanged: (page) {
-              setState(() => _currentPage = page);
-            },
-            physics: const BouncingScrollPhysics(),
-            itemCount: spreads.length,
-            itemBuilder: (context, index) =>
-                _buildSpread(spreads[index], appearance),
-          ),
-        ),
+    final totalPages = spreads.length + 1;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: PageView.builder(
+        controller: _controller,
+        clipBehavior: Clip.none,
+        onPageChanged: (page) {
+          setState(() => _currentPage = page);
+        },
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: totalPages,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildCoverPage(appearance);
+          }
+          return _buildSpread(spreads[index - 1], appearance);
+        },
       ),
     );
   }
@@ -1097,54 +1157,57 @@ class _NotebookViewerState extends State<NotebookViewer> {
   Widget build(BuildContext context) {
     final spreads = _effectiveSpreads;
     final appearance = _effectiveAppearance;
+    final totalPages = spreads.length + 1;
     return LayoutBuilder(
       builder: (context, constraints) {
         final hasFiniteWidth = constraints.maxWidth.isFinite;
-        final hasFiniteHeight = constraints.maxHeight.isFinite;
         final media = MediaQuery.of(context);
-        final double viewportWidth = hasFiniteWidth && constraints.maxWidth > 0
+        final double viewportWidth = media.size.width;
+        final double availableWidth = hasFiniteWidth && constraints.maxWidth > 0
             ? constraints.maxWidth
-            : media.size.width;
+            : viewportWidth;
         final double maxAllowedWidth =
-            math.min(viewportWidth, 1200.0); // allow larger spreads
+            math.min(availableWidth, 1400.0); // allow larger spreads
         final double minAllowedWidth = math.min(360.0, maxAllowedWidth);
-        double spreadWidth = viewportWidth - 72;
-        if (hasFiniteWidth && constraints.maxWidth <= 500) {
-          spreadWidth = viewportWidth - 24;
+        final bool assumeSidePanel = availableWidth >= 960;
+        double spreadWidth;
+        if (assumeSidePanel) {
+          final double panelWidth = math.min(360.0, availableWidth * 0.28);
+          spreadWidth = availableWidth - (panelWidth + 48);
+        } else {
+          spreadWidth = availableWidth - 32;
+          if (availableWidth <= 500) {
+            spreadWidth = availableWidth - 16;
+          }
         }
         spreadWidth = spreadWidth.clamp(minAllowedWidth, maxAllowedWidth);
         final double spreadHeight = spreadWidth * (2 / 3);
-        final double coverHeight =
-            (spreadHeight * 0.45).clamp(110.0, hasFiniteHeight ? 200.0 : 220.0);
         final double pagerHeight = spreadHeight + 32;
+        final pager =
+            _buildPager(spreads, appearance, spreadWidth, pagerHeight);
 
-        final content = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        final column = Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _buildCoverPreview(appearance, spreadWidth, coverHeight),
-            _buildPager(spreads, appearance, spreadWidth, pagerHeight),
-            _buildControls(spreads.length, spreadWidth),
-            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              child: Align(
+                alignment: Alignment.center,
+                child: pager,
+              ),
+            ),
+            SizedBox(
+              width: spreadWidth,
+              child: _buildControls(totalPages, spreadWidth),
+            ),
+            const SizedBox(height: 12),
           ],
         );
 
-        if (!hasFiniteHeight) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: content,
-          );
-        }
-
-        final double estimatedHeight =
-            coverHeight + pagerHeight + 24 + 72; // padding and controls
-        if (estimatedHeight > constraints.maxHeight) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: content,
-          );
-        }
-
-        return content;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+          child: column,
+        );
       },
     );
   }

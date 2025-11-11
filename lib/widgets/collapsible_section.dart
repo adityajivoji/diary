@@ -10,6 +10,9 @@ class CollapsibleSection extends StatefulWidget {
     this.margin,
     this.headerPadding,
     this.contentPadding,
+    this.elevation = 0,
+    this.backgroundColor,
+    this.shadowColor,
     super.key,
   });
 
@@ -20,6 +23,9 @@ class CollapsibleSection extends StatefulWidget {
   final EdgeInsetsGeometry? margin;
   final EdgeInsetsGeometry? headerPadding;
   final EdgeInsetsGeometry? contentPadding;
+  final double elevation;
+  final Color? backgroundColor;
+  final Color? shadowColor;
 
   @override
   State<CollapsibleSection> createState() => _CollapsibleSectionState();
@@ -88,7 +94,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
 
     return Card(
       margin: widget.margin ?? const EdgeInsets.symmetric(vertical: 8),
-      elevation: 0,
+      elevation: widget.elevation,
+      color: widget.backgroundColor,
+      shadowColor: widget.shadowColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),

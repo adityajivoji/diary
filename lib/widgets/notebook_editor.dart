@@ -34,11 +34,13 @@ class NotebookEditor extends StatefulWidget {
     required this.initialSpreads,
     required this.initialAppearance,
     required this.onChanged,
+    this.footer,
   });
 
   final List<NotebookSpread> initialSpreads;
   final NotebookAppearance initialAppearance;
   final NotebookEditorChanged onChanged;
+  final Widget? footer;
 
   @override
   State<NotebookEditor> createState() => _NotebookEditorState();
@@ -448,8 +450,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   Future<void> _seekAudioBy(Duration offset) async {
-    final current =
-        _seekPreviewPosition ?? _audioPosition;
+    final current = _seekPreviewPosition ?? _audioPosition;
     await _seekAudioTo(current + offset);
   }
 
@@ -1266,129 +1267,169 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
   }
 
-  Widget _buildAppearanceControls(double width) {
+  Widget _buildAppearanceControls(
+    double width, {
+    bool overlay = false,
+    Widget? footer,
+  }) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final outlineColor = onSurface.withValues(alpha: 0.28);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final EdgeInsetsGeometry margin = overlay
+        ? EdgeInsets.zero
+        : const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+    final EdgeInsetsGeometry? headerPadding = overlay
+        ? const EdgeInsets.symmetric(horizontal: 20, vertical: 14)
+        : null;
+    final EdgeInsetsGeometry contentPadding = overlay
+        ? const EdgeInsets.fromLTRB(20, 0, 20, 16)
+        : const EdgeInsets.fromLTRB(16, 8, 16, 16);
+
+    final panel = CollapsibleSection(
+      title: 'Notebook style',
+      subtitle: _styleSummary,
+      margin: margin,
+      headerPadding: headerPadding,
+      contentPadding: contentPadding,
+      elevation: overlay ? 8 : 0,
+      backgroundColor: overlay
+          ? (isDark
+              ? theme.colorScheme.surface.withValues(alpha: 0.95)
+              : theme.colorScheme.surface)
+          : null,
+      shadowColor:
+          overlay ? Colors.black.withValues(alpha: isDark ? 0.4 : 0.18) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildColorPicker(
+            label: 'Page color',
+            selected: _appearance.pageColor,
+            onColorSelected: (color) => _updateAppearance(pageColor: color),
+          ),
+          const SizedBox(height: 16),
+          _buildColorPicker(
+            label: 'Line color',
+            selected: _appearance.lineColor,
+            onColorSelected: (color) => _updateAppearance(lineColor: color),
+          ),
+          const SizedBox(height: 16),
+          _buildColorPicker(
+            label: 'Cover color',
+            selected: _appearance.coverColor,
+            onColorSelected: (color) => _updateAppearance(coverColor: color),
+          ),
+          const SizedBox(height: 16),
+          _buildColorPicker(
+            label: 'Attachment highlight',
+            selected: _appearance.attachmentBackgroundColor,
+            onColorSelected: (color) =>
+                _updateAppearance(attachmentColor: color),
+          ),
+          const SizedBox(height: 16),
+          _buildColorPicker(
+            label: 'Attachment icon color',
+            selected: _appearance.attachmentIconColor,
+            onColorSelected: (color) =>
+                _updateAppearance(attachmentIconColor: color),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            key: ValueKey(_appearance.fontFamily),
+            initialValue: _appearance.fontFamily,
+            decoration: const InputDecoration(
+              labelText: 'Notebook font',
+              border: OutlineInputBorder(),
+            ),
+            items: _fontChoices.map((font) {
+              return DropdownMenuItem<String>(
+                value: font,
+                child: Text(
+                  font,
+                  style: GoogleFonts.getFont(font),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                _updateAppearance(fontFamily: value);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickCoverPhoto,
+                  icon: const Icon(Icons.photo_library_rounded),
+                  label: const Text('Choose cover photo'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: onSurface,
+                    side: BorderSide(color: outlineColor),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (_appearance.coverImagePath != null)
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: kIsWeb
+                        ? Image.network(
+                            _appearance.coverImagePath!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, _, __) {
+                              return Container(
+                                color: Colors.black12,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.photo_rounded),
+                              );
+                            },
+                          )
+                        : Image.file(
+                            File(_appearance.coverImagePath!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, _, __) {
+                              return Container(
+                                color: Colors.black12,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.photo_rounded),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        panel,
+        if (footer != null) ...[
+          const SizedBox(height: 12),
+          footer,
+        ],
+      ],
+    );
+
+    if (overlay) {
+      return content;
+    }
 
     return Align(
       alignment: Alignment.center,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width),
-        child: CollapsibleSection(
-          title: 'Notebook style',
-          subtitle: _styleSummary,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildColorPicker(
-                label: 'Page color',
-                selected: _appearance.pageColor,
-                onColorSelected: (color) => _updateAppearance(pageColor: color),
-              ),
-              const SizedBox(height: 16),
-              _buildColorPicker(
-                label: 'Line color',
-                selected: _appearance.lineColor,
-                onColorSelected: (color) => _updateAppearance(lineColor: color),
-              ),
-              const SizedBox(height: 16),
-              _buildColorPicker(
-                label: 'Cover color',
-                selected: _appearance.coverColor,
-                onColorSelected: (color) =>
-                    _updateAppearance(coverColor: color),
-              ),
-              const SizedBox(height: 16),
-              _buildColorPicker(
-                label: 'Attachment highlight',
-                selected: _appearance.attachmentBackgroundColor,
-                onColorSelected: (color) =>
-                    _updateAppearance(attachmentColor: color),
-              ),
-              const SizedBox(height: 16),
-              _buildColorPicker(
-                label: 'Attachment icon color',
-                selected: _appearance.attachmentIconColor,
-                onColorSelected: (color) =>
-                    _updateAppearance(attachmentIconColor: color),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: ValueKey(_appearance.fontFamily),
-                initialValue: _appearance.fontFamily,
-                decoration: const InputDecoration(
-                  labelText: 'Notebook font',
-                  border: OutlineInputBorder(),
-                ),
-                items: _fontChoices.map((font) {
-                  return DropdownMenuItem<String>(
-                    value: font,
-                    child: Text(
-                      font,
-                      style: GoogleFonts.getFont(font),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _updateAppearance(fontFamily: value);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickCoverPhoto,
-                      icon: const Icon(Icons.photo_library_rounded),
-                      label: const Text('Choose cover photo'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: onSurface,
-                        side: BorderSide(color: outlineColor),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  if (_appearance.coverImagePath != null)
-                    SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: kIsWeb
-                            ? Image.network(
-                                _appearance.coverImagePath!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, _, __) {
-                                  return Container(
-                                    color: Colors.black12,
-                                    alignment: Alignment.center,
-                                    child: const Icon(Icons.photo_rounded),
-                                  );
-                                },
-                              )
-                            : Image.file(
-                                File(_appearance.coverImagePath!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, _, __) {
-                                  return Container(
-                                    color: Colors.black12,
-                                    alignment: Alignment.center,
-                                    child: const Icon(Icons.photo_rounded),
-                                  );
-                                },
-                              ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
   }
@@ -1416,8 +1457,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final maxWidth =
-                constraints.maxWidth.isFinite ? constraints.maxWidth : double.infinity;
+            final maxWidth = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : double.infinity;
             final usableMaxWidth = maxWidth.isFinite
                 ? math.min(maxWidth, _maxImageWidth)
                 : _maxImageWidth;
@@ -1430,7 +1472,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
             final clampedRatio = aspectRatio.clamp(0.1, 5.0);
             final targetHeight = targetWidth / clampedRatio;
 
-            final imageProvider = _createAttachmentImageProvider(attachment.path);
+            final imageProvider =
+                _createAttachmentImageProvider(attachment.path);
             Widget imageChild;
             if (imageProvider != null) {
               imageChild = Image(
@@ -1505,8 +1548,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
                                 ),
                                 icon: const Icon(Icons.zoom_out_rounded),
                                 onPressed: canZoomOut
-                                    ? () =>
-                                        _changeAttachmentScale(attachment.id, -0.15)
+                                    ? () => _changeAttachmentScale(
+                                        attachment.id, -0.15)
                                     : null,
                               ),
                             ),
@@ -1532,7 +1575,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
                                     Icons.center_focus_strong_rounded),
                                 onPressed: scale == 1.0
                                     ? null
-                                    : () => _setAttachmentScale(attachment.id, 1.0),
+                                    : () =>
+                                        _setAttachmentScale(attachment.id, 1.0),
                               ),
                             ),
                             Tooltip(
@@ -1544,8 +1588,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
                                 ),
                                 icon: const Icon(Icons.zoom_in_rounded),
                                 onPressed: canZoomIn
-                                    ? () =>
-                                        _changeAttachmentScale(attachment.id, 0.15)
+                                    ? () => _changeAttachmentScale(
+                                        attachment.id, 0.15)
                                     : null,
                               ),
                             ),
@@ -1567,23 +1611,21 @@ class _NotebookEditorState extends State<NotebookEditor> {
         final durationMs = duration?.inMilliseconds ?? 0;
         final positionMs = position.inMilliseconds;
         final sliderMax = durationMs > 0 ? durationMs.toDouble() : 1.0;
-        final sliderValue = durationMs > 0
-            ? positionMs.clamp(0, durationMs).toDouble()
-            : 0.0;
+        final sliderValue =
+            durationMs > 0 ? positionMs.clamp(0, durationMs).toDouble() : 0.0;
         final progress =
             durationMs > 0 && sliderMax > 0 ? sliderValue / sliderMax : 0.0;
         final titleStyle = Theme.of(context).textTheme.bodyMedium;
         final durationLabel =
             duration != null ? _formatDuration(duration) : '--:--';
         final positionLabel = _formatDuration(position);
-        final timeLabelStyle =
-            Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.color
-                      ?.withValues(alpha: 0.7),
-                );
+        final timeLabelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.color
+                  ?.withValues(alpha: 0.7),
+            );
         final controlsDisabled = _isAudioLoading;
         final displayName = (attachment.caption?.trim().isNotEmpty ?? false)
             ? attachment.caption!.trim()
@@ -1688,7 +1730,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       onChangeEnd: controlsDisabled
                           ? null
                           : (value) {
-                              _seekAudioTo(Duration(milliseconds: value.round()));
+                              _seekAudioTo(
+                                  Duration(milliseconds: value.round()));
                             },
                     )
                   else
@@ -1723,8 +1766,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                           icon: const Icon(Icons.replay_5_rounded),
                           onPressed: controlsDisabled
                               ? null
-                              : () =>
-                                  _seekAudioBy(const Duration(seconds: -5)),
+                              : () => _seekAudioBy(const Duration(seconds: -5)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1798,7 +1840,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
     final textColor = _resolveNotebookTextColor(theme);
     final double fontSize = font.fontSize ?? 18;
     final double fontHeight = font.height ?? 1.6;
-    final double lineSpacing = (fontSize * fontHeight).clamp(20, 64).toDouble();
     final inputDecoration = InputDecoration(
       border: InputBorder.none,
       hintText: 'Your story goes here...',
@@ -1816,9 +1857,34 @@ class _NotebookEditorState extends State<NotebookEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 900),
+          final double availableWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : math.min(MediaQuery.of(context).size.width, 1600.0);
+          const int targetLineCount = 21;
+          final double pageHeight = availableWidth * (2 / 3);
+          final double innerHeight = math.max(0, pageHeight - 48);
+          final double drawableHeight = math.max(0, innerHeight - 32);
+          final double fallbackSpacing = (fontSize * fontHeight).clamp(12, 96);
+          final double lineSpacing = (targetLineCount > 1 && drawableHeight > 0)
+              ? drawableHeight / (targetLineCount - 1)
+              : fallbackSpacing;
+          final double textHeightFactor =
+              fontSize > 0 ? (lineSpacing / fontSize) : fontHeight;
+          final hintStyle = inputDecoration.hintStyle?.copyWith(
+                height: textHeightFactor,
+              ) ??
+              font.copyWith(
+                color: textColor.withValues(alpha: 0.5),
+                height: textHeightFactor,
+              );
+          final textStyle = font.copyWith(
+            color: textColor,
+            height: textHeightFactor,
+          );
+          return Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: availableWidth,
               child: AspectRatio(
                 aspectRatio: 3 / 2,
                 child: DecoratedBox(
@@ -1878,6 +1944,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                             backgroundColor: _appearance.pageColor,
                             lineColor: _appearance.lineColor,
                             lineSpacing: lineSpacing,
+                            lineCount: targetLineCount,
                             child: TextField(
                               controller: controller,
                               onChanged: (value) =>
@@ -1887,8 +1954,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
                               minLines: null,
                               keyboardType: TextInputType.multiline,
                               cursorColor: textColor,
-                              decoration: inputDecoration,
-                              style: font.copyWith(color: textColor),
+                              decoration: inputDecoration.copyWith(
+                                hintStyle: hintStyle,
+                              ),
+                              style: textStyle,
                             ),
                           ),
                         ),
@@ -1969,11 +2038,128 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
   }
 
+  List<Widget> _buildPageControlButtons({
+    required ThemeData theme,
+    required Color onSurface,
+    required Color disabledColor,
+    required Color outlineColor,
+    required bool includeSpacer,
+  }) {
+    final controls = <Widget>[
+      IconButton.filledTonal(
+        onPressed: _currentPage > 0
+            ? () {
+                _pageController.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            : null,
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        tooltip: 'Previous page',
+        style: IconButton.styleFrom(
+          foregroundColor: onSurface,
+          disabledForegroundColor: disabledColor,
+        ),
+      ),
+      const SizedBox(width: 8),
+      IconButton.filledTonal(
+        onPressed: _currentPage < _spreads.length - 1
+            ? () {
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            : null,
+        icon: const Icon(Icons.arrow_forward_ios_rounded),
+        tooltip: 'Next page',
+        style: IconButton.styleFrom(
+          foregroundColor: onSurface,
+          disabledForegroundColor: disabledColor,
+        ),
+      ),
+      const SizedBox(width: 12),
+      ElevatedButton.icon(
+        onPressed: () => _addPageAfter(_currentPage),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Add page'),
+        style: ElevatedButton.styleFrom(
+          foregroundColor: theme.colorScheme.onPrimary,
+          backgroundColor: theme.colorScheme.secondary,
+        ),
+      ),
+      const SizedBox(width: 12),
+      OutlinedButton.icon(
+        onPressed: _goToPage,
+        icon: const Icon(Icons.menu_book_rounded),
+        label: Text('Page ${_currentPage + 1}/${_spreads.length}'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: onSurface,
+          side: BorderSide(color: outlineColor),
+        ),
+      ),
+      const SizedBox(width: 12),
+      IconButton(
+        onPressed: () => _deletePage(_currentPage),
+        tooltip: 'Delete page',
+        icon: Icon(
+          Icons.delete_rounded,
+          color: theme.colorScheme.error,
+        ),
+      ),
+    ];
+
+    if (includeSpacer) {
+      controls
+        ..add(const Spacer())
+        ..add(const SizedBox(width: 8));
+    } else {
+      controls.add(const SizedBox(width: 12));
+    }
+
+    controls
+      ..add(
+        FilledButton.tonalIcon(
+          onPressed: () => _handleAddImage(_currentPage, ImageSource.gallery),
+          icon: const Icon(Icons.photo_library_rounded),
+          label: const Text('Gallery'),
+        ),
+      )
+      ..add(const SizedBox(width: 8))
+      ..add(
+        FilledButton.tonalIcon(
+          onPressed: () => _handleAddAudio(_currentPage),
+          icon: const Icon(Icons.audiotrack_rounded),
+          label: const Text('Audio'),
+        ),
+      )
+      ..add(const SizedBox(width: 8))
+      ..add(
+        FilledButton.tonalIcon(
+          onPressed: () => _toggleRecording(_currentPage),
+          icon: Icon(
+            _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+          ),
+          label: Text(_isRecording ? 'Stop' : 'Record'),
+        ),
+      );
+
+    return controls;
+  }
+
   Widget _buildPageControls(double width) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final disabledColor = onSurface.withValues(alpha: 0.32);
     final outlineColor = onSurface.withValues(alpha: 0.28);
+    final controls = _buildPageControlButtons(
+      theme: theme,
+      onSurface: onSurface,
+      disabledColor: disabledColor,
+      outlineColor: outlineColor,
+      includeSpacer: true,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1984,94 +2170,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  IconButton.filledTonal(
-                    onPressed: _currentPage > 0
-                        ? () {
-                            _pageController.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        : null,
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    tooltip: 'Previous page',
-                    style: IconButton.styleFrom(
-                      foregroundColor: onSurface,
-                      disabledForegroundColor: disabledColor,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    onPressed: _currentPage < _spreads.length - 1
-                        ? () {
-                            _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        : null,
-                    icon: const Icon(Icons.arrow_forward_ios_rounded),
-                    tooltip: 'Next page',
-                    style: IconButton.styleFrom(
-                      foregroundColor: onSurface,
-                      disabledForegroundColor: disabledColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _addPageAfter(_currentPage),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add page'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      backgroundColor: theme.colorScheme.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _goToPage,
-                    icon: const Icon(Icons.menu_book_rounded),
-                    label: Text('Page ${_currentPage + 1}/${_spreads.length}'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: onSurface,
-                      side: BorderSide(color: outlineColor),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: () => _deletePage(_currentPage),
-                    tooltip: 'Delete page',
-                    icon: Icon(
-                      Icons.delete_rounded,
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: () =>
-                        _handleAddImage(_currentPage, ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library_rounded),
-                    label: const Text('Gallery'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _handleAddAudio(_currentPage),
-                    icon: const Icon(Icons.audiotrack_rounded),
-                    label: const Text('Audio'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _toggleRecording(_currentPage),
-                    icon: Icon(
-                      _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-                    ),
-                    label: Text(_isRecording ? 'Stop' : 'Record'),
-                  ),
-                ],
-              ),
+              Row(children: controls),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
                 switchInCurve: Curves.easeOut,
@@ -2091,6 +2190,23 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
   }
 
+  Widget _buildPagerView(double spreadWidth, double pagerHeight) {
+    return SizedBox(
+      width: spreadWidth,
+      height: pagerHeight,
+      child: PageView.builder(
+        controller: _pageController,
+        clipBehavior: Clip.none,
+        onPageChanged: (value) {
+          setState(() => _currentPage = value);
+        },
+        physics: const BouncingScrollPhysics(),
+        itemCount: _spreads.length,
+        itemBuilder: (context, index) => _buildSpread(index),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -2100,59 +2216,75 @@ class _NotebookEditorState extends State<NotebookEditor> {
         final availableWidth = hasFiniteWidth && constraints.maxWidth > 0
             ? constraints.maxWidth
             : media.size.width;
-        final double maxAllowedWidth = math.min(
-            availableWidth, 1200.0); // larger workspace on wide screens
+        final double maxAllowedWidth = math.min(availableWidth, 1400.0);
         final double minAllowedWidth = math.min(360.0, maxAllowedWidth);
-        double spreadWidth = availableWidth - 72;
-        if (hasFiniteWidth && constraints.maxWidth <= 520) {
-          spreadWidth = availableWidth - 24;
+        final bool showSidePanel = availableWidth >= 960;
+        double panelWidth = 0;
+        if (showSidePanel) {
+          panelWidth = math.min(360.0, availableWidth * 0.28);
         }
-        spreadWidth = spreadWidth.clamp(minAllowedWidth, maxAllowedWidth);
-        final spreadHeight = spreadWidth * (2 / 3);
-        final pagerHeight = spreadHeight + 32;
+        double notebookWidth =
+            availableWidth - (showSidePanel ? panelWidth + 48 : 32);
+        notebookWidth =
+            notebookWidth.clamp(minAllowedWidth, maxAllowedWidth).toDouble();
+        final double spreadHeight = notebookWidth * (2 / 3);
+        final double pagerHeight = spreadHeight + 32;
+        final pagerView = _buildPagerView(notebookWidth, pagerHeight);
 
-        final pageView = Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Align(
-            alignment: Alignment.center,
-            child: SizedBox(
-              width: spreadWidth,
-              height: pagerHeight,
-              child: PageView.builder(
-                controller: _pageController,
-                clipBehavior: Clip.none,
-                onPageChanged: (value) {
-                  setState(() => _currentPage = value);
-                },
-                physics: const BouncingScrollPhysics(),
-                itemCount: _spreads.length,
-                itemBuilder: (context, index) => _buildSpread(index),
-              ),
-            ),
+        final notebookContent = SizedBox(
+          width: notebookWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              pagerView,
+              const SizedBox(height: 16),
+              _buildPageControls(notebookWidth),
+            ],
           ),
         );
 
+        if (showSidePanel) {
+          final sidePanel = SizedBox(
+            width: panelWidth,
+            child: _buildAppearanceControls(
+              panelWidth,
+              overlay: true,
+              footer: widget.footer,
+            ),
+          );
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: notebookContent,
+                  ),
+                ),
+                const SizedBox(width: 24),
+                sidePanel,
+              ],
+            ),
+          );
+        }
+
         final column = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            pageView,
-            const SizedBox(height: 8),
-            _buildPageControls(spreadWidth),
-            const SizedBox(height: 16),
-            _buildAppearanceControls(spreadWidth),
+            notebookContent,
+            const SizedBox(height: 20),
+            _buildAppearanceControls(
+              notebookWidth,
+              footer: widget.footer,
+            ),
           ],
         );
 
-        if (!constraints.hasBoundedHeight) {
-          return column;
-        }
-
         return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: column,
-          ),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          child: column,
         );
       },
     );

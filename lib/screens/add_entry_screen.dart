@@ -27,6 +27,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   DiaryEntryFormat _format = DiaryEntryFormat.standard;
   List<NotebookSpread> _notebookSpreads = <NotebookSpread>[];
   Mood? _selectedMood;
+  bool _showNotebookExtras = true;
 
   bool get _isEditing => widget.entry != null;
 
@@ -340,38 +341,45 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   }
 
   Widget _buildNotebookLayout(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       key: const ValueKey('notebook-layout'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildModeSelector(context),
-              const SizedBox(height: 20),
-              CollapsibleSection(
-                title: 'Notebook details',
-                subtitle: _notebookDetailsSummary,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildNotebookMetaSection(context),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.7),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _showNotebookExtras
+                ? Column(
+                    key: const ValueKey('notebook-toolbar'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildModeSelector(context),
+                      const SizedBox(height: 12),
+                      CollapsibleSection(
+                        title: 'Notebook details',
+                        subtitle: _notebookDetailsSummary,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildNotebookMetaSection(context),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
           ),
         ),
         Expanded(
@@ -381,6 +389,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               initialSpreads: _notebookSpreads,
               initialAppearance: _notebookAppearance,
               onChanged: _handleNotebookChanged,
+              footer: _buildNotebookExtrasToggle(context),
             ),
           ),
         ),
@@ -472,6 +481,27 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     Navigator.of(context).pop();
   }
 
+  void _toggleNotebookExtras() {
+    setState(() {
+      _showNotebookExtras = !_showNotebookExtras;
+    });
+  }
+
+  Widget _buildNotebookExtrasToggle(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: _toggleNotebookExtras,
+        icon: Icon(
+          _showNotebookExtras
+              ? Icons.unfold_less_rounded
+              : Icons.unfold_more_rounded,
+        ),
+        label: Text(_showNotebookExtras ? 'Minimize' : 'Maximize'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final content = AnimatedSwitcher(
@@ -504,6 +534,88 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NotebookToolbar extends StatefulWidget {
+  const _NotebookToolbar({
+    required this.modeSelector,
+    required this.detailsSummary,
+    required this.metaSection,
+    required this.infoStyle,
+  });
+
+  final Widget modeSelector;
+  final String detailsSummary;
+  final Widget metaSection;
+  final TextStyle? infoStyle;
+
+  @override
+  State<_NotebookToolbar> createState() => _NotebookToolbarState();
+}
+
+class _NotebookToolbarState extends State<_NotebookToolbar> {
+  bool _showDetails = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_showDetails) widget.modeSelector,
+        if (_showDetails) const SizedBox(height: 12),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: !_showDetails
+              ? const SizedBox.shrink()
+              : Column(
+                  key: const ValueKey('notebook-details'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CollapsibleSection(
+                      title: 'Notebook details',
+                      subtitle: widget.detailsSummary,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          widget.metaSection,
+                          const SizedBox(height: 12),
+                          Text(
+                            'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.',
+                            style: widget.infoStyle?.copyWith(
+                              color: onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _showDetails = !_showDetails;
+              });
+            },
+            icon: Icon(
+              _showDetails
+                  ? Icons.unfold_less_rounded
+                  : Icons.unfold_more_rounded,
+            ),
+            label: Text(_showDetails ? 'Minimize' : 'Maximize'),
+          ),
+        ),
+      ],
     );
   }
 }
