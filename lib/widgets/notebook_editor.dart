@@ -99,6 +99,13 @@ class _NotebookEditorState extends State<NotebookEditor> {
   bool _isAudioPlaying = false;
   bool _isUserSeekingAudio = false;
   Duration? _seekPreviewPosition;
+  final Map<String, _AttachmentDisplayState> _attachmentDisplayStates =
+      <String, _AttachmentDisplayState>{};
+  static const double _baseImageWidth = 220.0;
+  static const double _minImageWidth = 120.0;
+  static const double _maxImageWidth = 420.0;
+  static const double _minImageScale = 0.6;
+  static const double _maxImageScale = 2.4;
   int _currentPage = 0;
 
   @override
@@ -121,6 +128,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     for (var i = 0; i < _spreads.length; i++) {
       _textControllers.add(TextEditingController(text: _spreads[i].text));
     }
+    _syncAttachmentDisplayStates();
     _audioPlayer = AudioPlayer();
     _audioPositionSubscription =
         _audioPlayer.onPositionChanged.listen((position) {
@@ -618,6 +626,134 @@ class _NotebookEditorState extends State<NotebookEditor> {
     _updateAttachments(spreadIndex, (list) => list..add(attachment));
   }
 
+  void _syncAttachmentDisplayStates() {
+    final validIds = <String>{};
+    for (final spread in _spreads) {
+      for (final attachment in spread.attachments) {
+        validIds.add(attachment.id);
+        final state = _attachmentDisplayStates.putIfAbsent(
+          attachment.id,
+          () => _AttachmentDisplayState(),
+        );
+        if (attachment.type == NotebookAttachmentType.image &&
+            state.aspectRatio == null &&
+            !state.isResolvingAspectRatio) {
+          _loadAttachmentAspectRatio(attachment);
+        }
+      }
+    }
+    _attachmentDisplayStates.removeWhere(
+      (key, value) => !validIds.contains(key),
+    );
+  }
+
+  Future<void> _loadAttachmentAspectRatio(
+    NotebookAttachment attachment,
+  ) async {
+    final state = _attachmentDisplayStates[attachment.id];
+    if (state == null || state.isResolvingAspectRatio) {
+      return;
+    }
+    final provider = _createAttachmentImageProvider(attachment.path);
+    if (provider == null) {
+      return;
+    }
+    state.isResolvingAspectRatio = true;
+    try {
+      final ratio = await _resolveImageAspectRatio(provider);
+      if (!mounted || ratio == null) return;
+      setState(() {
+        state.aspectRatio = ratio;
+      });
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to resolve image ratio for attachment ${attachment.path}: $error',
+      );
+      debugPrint('$stackTrace');
+    } finally {
+      state.isResolvingAspectRatio = false;
+    }
+  }
+
+  Future<double?> _resolveImageAspectRatio(ImageProvider provider) async {
+    final completer = Completer<double>();
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        final width = info.image.width.toDouble();
+        final height = info.image.height.toDouble();
+        if (height == 0) {
+          if (!completer.isCompleted) {
+            completer.completeError(Exception('Image has zero height.'));
+          }
+        } else {
+          final ratio = width / height;
+          if (!completer.isCompleted) completer.complete(ratio);
+        }
+        stream.removeListener(listener);
+      },
+      onError: (error, stackTrace) {
+        if (!completer.isCompleted) completer.completeError(error, stackTrace);
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+    try {
+      final ratio = await completer.future;
+      if (ratio.isFinite && ratio > 0) {
+        return ratio;
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Image ratio resolution error: $error');
+      debugPrint('$stackTrace');
+    }
+    return null;
+  }
+
+  ImageProvider? _createAttachmentImageProvider(String path) {
+    try {
+      final uri = _resolveAttachmentUri(path);
+      if (kIsWeb) {
+        return NetworkImage(uri.toString());
+      }
+      if (uri.scheme.isEmpty || uri.scheme == 'file') {
+        final normalized = _expandUserPath(uri.toFilePath());
+        final file = File(normalized);
+        if (file.existsSync()) {
+          return FileImage(file);
+        }
+        return null;
+      }
+      return NetworkImage(uri.toString());
+    } catch (error, stackTrace) {
+      debugPrint('Unable to build image provider for path $path: $error');
+      debugPrint('$stackTrace');
+      return null;
+    }
+  }
+
+  void _changeAttachmentScale(String attachmentId, double delta) {
+    final state = _attachmentDisplayStates[attachmentId];
+    if (state == null) return;
+    final newScale =
+        (state.scale + delta).clamp(_minImageScale, _maxImageScale);
+    if ((newScale - state.scale).abs() < 0.001) return;
+    setState(() {
+      state.scale = newScale;
+    });
+  }
+
+  void _setAttachmentScale(String attachmentId, double value) {
+    final state = _attachmentDisplayStates[attachmentId];
+    if (state == null) return;
+    final clamped = value.clamp(_minImageScale, _maxImageScale);
+    if ((clamped - state.scale).abs() < 0.001) return;
+    setState(() {
+      state.scale = clamped;
+    });
+  }
+
   double _normalizeAmplitude(double decibels) {
     const minDb = -60.0;
     final double clamped =
@@ -696,14 +832,20 @@ class _NotebookEditorState extends State<NotebookEditor> {
           .attachments
           .indexWhere((attachment) => attachment.id == attachmentId);
       if (index != -1) {
+        NotebookAttachment? updatedAttachment;
         _updateAttachments(
           i,
           (list) {
             final updated = list[index].copyWith(path: newPath);
             list[index] = updated;
+            updatedAttachment = updated;
             return list;
           },
         );
+        if (updatedAttachment != null &&
+            updatedAttachment!.type == NotebookAttachmentType.image) {
+          _loadAttachmentAspectRatio(updatedAttachment!);
+        }
         break;
       }
     }
@@ -850,6 +992,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
         attachments: updated,
       );
     });
+    _syncAttachmentDisplayStates();
     _notifyChanged();
   }
 
@@ -1174,56 +1317,153 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
     switch (attachment.type) {
       case NotebookAttachmentType.image:
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          elevation: 0.8,
-          shape: border,
-          child: Stack(
-            children: [
-              SizedBox(
-                width: 140,
-                height: 120,
-                child: kIsWeb
-                    ? Image.network(
-                        attachment.path,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, _, __) {
-                          return Container(
-                            color: Colors.black12,
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.broken_image_rounded),
-                          );
-                        },
-                      )
-                    : Image.file(
-                        File(attachment.path),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, _, __) {
-                          return Container(
-                            color: Colors.black12,
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.broken_image_rounded),
-                          );
-                        },
+        final displayState = _attachmentDisplayStates.putIfAbsent(
+          attachment.id,
+          () => _AttachmentDisplayState(),
+        );
+        final aspectRatio =
+            (displayState.aspectRatio != null && displayState.aspectRatio! > 0)
+                ? displayState.aspectRatio!
+                : (4 / 3);
+        final scale = displayState.scale;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth =
+                constraints.maxWidth.isFinite ? constraints.maxWidth : double.infinity;
+            final usableMaxWidth = maxWidth.isFinite
+                ? math.min(maxWidth, _maxImageWidth)
+                : _maxImageWidth;
+            final targetWidth = math
+                .max(
+                  _minImageWidth,
+                  math.min(_baseImageWidth * scale, usableMaxWidth),
+                )
+                .toDouble();
+            final clampedRatio = aspectRatio.clamp(0.1, 5.0);
+            final targetHeight = targetWidth / clampedRatio;
+
+            final imageProvider = _createAttachmentImageProvider(attachment.path);
+            Widget imageChild;
+            if (imageProvider != null) {
+              imageChild = Image(
+                image: imageProvider,
+                fit: BoxFit.contain,
+              );
+            } else {
+              imageChild = const Icon(
+                Icons.broken_image_rounded,
+                size: 48,
+              );
+            }
+
+            final canZoomOut = scale > _minImageScale + 0.05;
+            final canZoomIn = scale < _maxImageScale - 0.05;
+
+            return SizedBox(
+              width: targetWidth,
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                elevation: 0.8,
+                shape: border,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              width: targetWidth,
+                              height: targetHeight,
+                              color: Colors.black.withValues(alpha: 0.05),
+                              alignment: Alignment.center,
+                              child: imageChild,
+                            ),
+                          ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: IconButton.filled(
+                              style: IconButton.styleFrom(
+                                backgroundColor:
+                                    Colors.black.withValues(alpha: 0.48),
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size.square(28),
+                              ),
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () =>
+                                  _removeAttachment(spreadIndex, attachment.id),
+                            ),
+                          ),
+                        ],
                       ),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: IconButton.filled(
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withValues(alpha: 0.48),
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size.square(28),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Tooltip(
+                              message: 'Shrink image',
+                              child: IconButton(
+                                icon: const Icon(Icons.zoom_out_rounded),
+                                onPressed: canZoomOut
+                                    ? () =>
+                                        _changeAttachmentScale(attachment.id, -0.15)
+                                    : null,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                '${(scale * 100).round()}%',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .labelMedium
+                                          ?.color
+                                          ?.withValues(alpha: 0.7),
+                                    ),
+                              ),
+                            ),
+                            Tooltip(
+                              message: 'Reset size',
+                              child: IconButton(
+                                icon:
+                                    const Icon(Icons.center_focus_strong_rounded),
+                                onPressed: scale == 1.0
+                                    ? null
+                                    : () => _setAttachmentScale(attachment.id, 1.0),
+                              ),
+                            ),
+                            Tooltip(
+                              message: 'Enlarge image',
+                              child: IconButton(
+                                icon: const Icon(Icons.zoom_in_rounded),
+                                onPressed: canZoomIn
+                                    ? () =>
+                                        _changeAttachmentScale(attachment.id, 0.15)
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  onPressed: () =>
-                      _removeAttachment(spreadIndex, attachment.id),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         );
       case NotebookAttachmentType.audio:
         final isActive = attachment.id == _activeAttachmentId;
@@ -1792,6 +2032,12 @@ class _NotebookEditorState extends State<NotebookEditor> {
       },
     );
   }
+}
+
+class _AttachmentDisplayState {
+  double? aspectRatio;
+  double scale = 1.0;
+  bool isResolvingAspectRatio = false;
 }
 
 class _RecorderEncoderOption {
