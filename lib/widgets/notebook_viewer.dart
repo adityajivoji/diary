@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
@@ -151,21 +152,37 @@ class _NotebookViewerState extends State<NotebookViewer> {
                                 ),
                       ),
                     )
-                  : Image.file(
-                      File(appearance.coverImagePath!),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, _, __) {
-                        return Center(
-                          child: Text(
-                            'Cover photo missing',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(color: Colors.white),
-                          ),
-                        );
-                      },
-                    ),
+                  : kIsWeb
+                      ? Image.network(
+                          appearance.coverImagePath!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, __) {
+                            return Center(
+                              child: Text(
+                                'Cover photo missing',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(color: Colors.white),
+                              ),
+                            );
+                          },
+                        )
+                      : Image.file(
+                          File(appearance.coverImagePath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, __) {
+                            return Center(
+                              child: Text(
+                                'Cover photo missing',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(color: Colors.white),
+                              ),
+                            );
+                          },
+                        ),
             ),
           ),
         ),
@@ -187,24 +204,43 @@ class _NotebookViewerState extends State<NotebookViewer> {
       case NotebookAttachmentType.image:
         return ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Image.file(
-            File(attachment.path),
-            width: 140,
-            height: 120,
-            fit: BoxFit.cover,
-            errorBuilder: (context, _, __) {
-              return Container(
-                width: 140,
-                height: 120,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(16),
+          child: kIsWeb
+              ? Image.network(
+                  attachment.path,
+                  width: 140,
+                  height: 120,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, __) {
+                    return Container(
+                      width: 140,
+                      height: 120,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.broken_image_rounded),
+                    );
+                  },
+                )
+              : Image.file(
+                  File(attachment.path),
+                  width: 140,
+                  height: 120,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, __) {
+                    return Container(
+                      width: 140,
+                      height: 120,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.broken_image_rounded),
+                    );
+                  },
                 ),
-                child: const Icon(Icons.broken_image_rounded),
-              );
-            },
-          ),
         );
       case NotebookAttachmentType.audio:
         return Container(

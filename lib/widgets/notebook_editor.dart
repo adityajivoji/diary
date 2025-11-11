@@ -1131,17 +1131,29 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       height: 56,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(_appearance.coverImagePath!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, _, __) {
-                            return Container(
-                              color: Colors.black12,
-                              alignment: Alignment.center,
-                              child: const Icon(Icons.photo_rounded),
-                            );
-                          },
-                        ),
+                        child: kIsWeb
+                            ? Image.network(
+                                _appearance.coverImagePath!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, _, __) {
+                                  return Container(
+                                    color: Colors.black12,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.photo_rounded),
+                                  );
+                                },
+                              )
+                            : Image.file(
+                                File(_appearance.coverImagePath!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, _, __) {
+                                  return Container(
+                                    color: Colors.black12,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.photo_rounded),
+                                  );
+                                },
+                              ),
                       ),
                     ),
                 ],
@@ -1171,17 +1183,29 @@ class _NotebookEditorState extends State<NotebookEditor> {
               SizedBox(
                 width: 140,
                 height: 120,
-                child: Image.file(
-                  File(attachment.path),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, _, __) {
-                    return Container(
-                      color: Colors.black12,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.broken_image_rounded),
-                    );
-                  },
-                ),
+                child: kIsWeb
+                    ? Image.network(
+                        attachment.path,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, _, __) {
+                          return Container(
+                            color: Colors.black12,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_rounded),
+                          );
+                        },
+                      )
+                    : Image.file(
+                        File(attachment.path),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, _, __) {
+                          return Container(
+                            color: Colors.black12,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_rounded),
+                          );
+                        },
+                      ),
               ),
               Positioned(
                 top: 4,
