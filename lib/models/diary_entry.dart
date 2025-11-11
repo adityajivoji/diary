@@ -89,6 +89,8 @@ class NotebookAppearance {
     required this.coverColorValue,
     required this.fontFamily,
     this.coverImagePath,
+    required this.attachmentBackgroundColorValue,
+    required this.attachmentIconColorValue,
   });
 
   final int pageColorValue;
@@ -96,10 +98,14 @@ class NotebookAppearance {
   final int coverColorValue;
   final String fontFamily;
   final String? coverImagePath;
+  final int attachmentBackgroundColorValue;
+  final int attachmentIconColorValue;
 
   Color get pageColor => Color(pageColorValue);
   Color get lineColor => Color(lineColorValue);
   Color get coverColor => Color(coverColorValue);
+  Color get attachmentBackgroundColor => Color(attachmentBackgroundColorValue);
+  Color get attachmentIconColor => Color(attachmentIconColorValue);
 
   NotebookAppearance copyWith({
     int? pageColorValue,
@@ -107,6 +113,8 @@ class NotebookAppearance {
     int? coverColorValue,
     String? fontFamily,
     String? coverImagePath,
+    int? attachmentBackgroundColorValue,
+    int? attachmentIconColorValue,
   }) {
     return NotebookAppearance(
       pageColorValue: pageColorValue ?? this.pageColorValue,
@@ -114,6 +122,10 @@ class NotebookAppearance {
       coverColorValue: coverColorValue ?? this.coverColorValue,
       fontFamily: fontFamily ?? this.fontFamily,
       coverImagePath: coverImagePath ?? this.coverImagePath,
+      attachmentBackgroundColorValue: attachmentBackgroundColorValue ??
+          this.attachmentBackgroundColorValue,
+      attachmentIconColorValue:
+          attachmentIconColorValue ?? this.attachmentIconColorValue,
     );
   }
 
@@ -123,6 +135,8 @@ class NotebookAppearance {
       lineColorValue: 0xFF000000,
       coverColorValue: 0xFF000000,
       fontFamily: 'Roboto',
+      attachmentBackgroundColorValue: 0xFFF3F4FF,
+      attachmentIconColorValue: 0xFF4F46E5,
     );
   }
 }

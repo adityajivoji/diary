@@ -250,12 +250,15 @@ class _NotebookViewerState extends State<NotebookViewer> {
           width: 220,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: _effectiveAppearance.attachmentBackgroundColor,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
             children: [
-              const Icon(Icons.audiotrack_rounded),
+              Icon(
+                Icons.audiotrack_rounded,
+                color: _effectiveAppearance.attachmentIconColor,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

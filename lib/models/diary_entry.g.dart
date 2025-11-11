@@ -122,13 +122,16 @@ class NotebookAppearanceAdapter extends TypeAdapter<NotebookAppearance> {
       coverColorValue: fields[2] as int? ?? 0xFF000000,
       fontFamily: fields[3] as String? ?? 'Roboto',
       coverImagePath: fields[4] as String?,
+      attachmentBackgroundColorValue:
+          fields[5] as int? ?? 0xFFF3F4FF,
+      attachmentIconColorValue: fields[6] as int? ?? 0xFF4F46E5,
     );
   }
 
   @override
   void write(BinaryWriter writer, NotebookAppearance obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.pageColorValue)
       ..writeByte(1)
@@ -138,6 +141,10 @@ class NotebookAppearanceAdapter extends TypeAdapter<NotebookAppearance> {
       ..writeByte(3)
       ..write(obj.fontFamily)
       ..writeByte(4)
-      ..write(obj.coverImagePath);
+      ..write(obj.coverImagePath)
+      ..writeByte(5)
+      ..write(obj.attachmentBackgroundColorValue)
+      ..writeByte(6)
+      ..write(obj.attachmentIconColorValue);
   }
 }

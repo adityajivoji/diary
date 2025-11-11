@@ -1183,6 +1183,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
     Color? pageColor,
     Color? lineColor,
     Color? coverColor,
+    Color? attachmentColor,
+    Color? attachmentIconColor,
     String? fontFamily,
     String? coverImagePath,
   }) {
@@ -1191,6 +1193,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
         pageColorValue: pageColor?.toARGB32(),
         lineColorValue: lineColor?.toARGB32(),
         coverColorValue: coverColor?.toARGB32(),
+        attachmentBackgroundColorValue: attachmentColor?.toARGB32(),
+        attachmentIconColorValue: attachmentIconColor?.toARGB32(),
         fontFamily: fontFamily,
         coverImagePath: coverImagePath,
       );
@@ -1298,6 +1302,20 @@ class _NotebookEditorState extends State<NotebookEditor> {
                     _updateAppearance(coverColor: color),
               ),
               const SizedBox(height: 16),
+              _buildColorPicker(
+                label: 'Attachment highlight',
+                selected: _appearance.attachmentBackgroundColor,
+                onColorSelected: (color) =>
+                    _updateAppearance(attachmentColor: color),
+              ),
+              const SizedBox(height: 16),
+              _buildColorPicker(
+                label: 'Attachment icon color',
+                selected: _appearance.attachmentIconColor,
+                onColorSelected: (color) =>
+                    _updateAppearance(attachmentIconColor: color),
+              ),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 key: ValueKey(_appearance.fontFamily),
                 initialValue: _appearance.fontFamily,
@@ -1382,7 +1400,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     final border = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
     );
-    final controlColor = _appearance.lineColor;
+    final controlColor = _appearance.attachmentIconColor;
     final disabledControlColor = controlColor.withValues(alpha: 0.4);
     switch (attachment.type) {
       case NotebookAttachmentType.image:
@@ -1435,6 +1453,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                 clipBehavior: Clip.antiAlias,
                 elevation: 0.8,
                 shape: border,
+                color: _appearance.attachmentBackgroundColor,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -1499,13 +1518,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                                 style: Theme.of(context)
                                     .textTheme
                                     .labelMedium
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .labelMedium
-                                          ?.color
-                                          ?.withValues(alpha: 0.7),
-                                    ),
+                                    ?.copyWith(color: controlColor),
                               ),
                             ),
                             Tooltip(
@@ -1579,6 +1592,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
         return Card(
           elevation: 0.8,
           shape: border,
+          color: _appearance.attachmentBackgroundColor,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
@@ -1612,7 +1626,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
                                 isActive && _isAudioPlaying
                                     ? Icons.pause_circle_filled_rounded
                                     : Icons.play_circle_filled_rounded,
-                                color: controlColor,
                               ),
                             ),
                     ),
@@ -1622,7 +1635,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                         displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
+                        style: titleStyle?.copyWith(color: controlColor),
                       ),
                     ),
                     Tooltip(
