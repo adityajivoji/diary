@@ -1918,12 +1918,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
                     ),
                   ),
                   const Spacer(),
-                  FilledButton.tonalIcon(
-                    onPressed: () =>
-                        _handleAddImage(_currentPage, ImageSource.camera),
-                    icon: const Icon(Icons.photo_camera_rounded),
-                    label: const Text('Camera'),
-                  ),
                   const SizedBox(width: 8),
                   FilledButton.tonalIcon(
                     onPressed: () =>
