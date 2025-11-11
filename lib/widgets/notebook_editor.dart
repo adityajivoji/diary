@@ -97,6 +97,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
   Duration? _audioDuration;
   bool _isAudioLoading = false;
   bool _isAudioPlaying = false;
+  bool _isUserSeekingAudio = false;
+  Duration? _seekPreviewPosition;
   int _currentPage = 0;
 
   @override
@@ -123,6 +125,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     _audioPositionSubscription =
         _audioPlayer.onPositionChanged.listen((position) {
       if (!mounted || _activeAttachmentId == null) return;
+      if (_isUserSeekingAudio) return;
       setState(() => _audioPosition = position);
     });
     _audioDurationSubscription =
@@ -142,13 +145,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
         if (state == PlayerState.completed) {
           _audioPosition = _audioDuration ?? Duration.zero;
           _isAudioPlaying = false;
-          _activeAttachmentId = null;
-          return;
-        }
-        if (state == PlayerState.stopped) {
-          _isAudioPlaying = false;
-          _audioPosition = Duration.zero;
-          _audioDuration = null;
           _activeAttachmentId = null;
           return;
         }
@@ -243,9 +239,13 @@ class _NotebookEditorState extends State<NotebookEditor> {
       if (_isAudioPlaying) {
         try {
           await _audioPlayer.pause();
-        } catch (_) {}
-        if (mounted) {
-          setState(() => _isAudioPlaying = false);
+          if (mounted) {
+            setState(() => _isAudioPlaying = false);
+          }
+        } catch (error, stackTrace) {
+          debugPrint('Audio pause error: $error');
+          debugPrint('$stackTrace');
+          await _stopAudioPlayback();
         }
         return;
       }
@@ -260,9 +260,22 @@ class _NotebookEditorState extends State<NotebookEditor> {
         }
       }
       try {
+        final resumeFrom = _seekPreviewPosition ?? _audioPosition;
+        if (resumeFrom > Duration.zero) {
+          try {
+            await _audioPlayer.seek(resumeFrom);
+          } catch (error, stackTrace) {
+            debugPrint('Audio seek before resume failed: $error');
+            debugPrint('$stackTrace');
+          }
+        }
         await _audioPlayer.resume();
         if (mounted) {
-          setState(() => _isAudioPlaying = true);
+          setState(() {
+            _isAudioPlaying = true;
+            _isUserSeekingAudio = false;
+            _seekPreviewPosition = null;
+          });
         }
       } catch (_) {
         if (mounted) {
@@ -325,10 +338,17 @@ class _NotebookEditorState extends State<NotebookEditor> {
       }
     }
 
+    try {
+      await _audioPlayer.stop();
+    } catch (_) {}
+    if (!mounted) return;
+
     setState(() {
       _activeAttachmentId = attachment.id;
       _isAudioLoading = true;
       _isAudioPlaying = false;
+      _isUserSeekingAudio = false;
+      _seekPreviewPosition = null;
       _audioPosition = Duration.zero;
       _audioDuration = null;
     });
@@ -341,7 +361,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
         source = UrlSource(uri.toString());
       }
 
-      await _audioPlayer.stop();
       await _audioPlayer.setSource(source);
       final duration = await _audioPlayer.getDuration();
       if (!mounted) return;
@@ -352,6 +371,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
       if (!mounted) return;
       setState(() {
         _isAudioPlaying = true;
+        _isUserSeekingAudio = false;
+        _seekPreviewPosition = null;
       });
     } catch (error, stackTrace) {
       debugPrint('Audio playback error: $error');
@@ -386,9 +407,42 @@ class _NotebookEditorState extends State<NotebookEditor> {
       _activeAttachmentId = null;
       _isAudioPlaying = false;
       _isAudioLoading = false;
+      _isUserSeekingAudio = false;
+      _seekPreviewPosition = null;
       _audioPosition = Duration.zero;
       _audioDuration = null;
     });
+  }
+
+  Future<void> _seekAudioTo(Duration target) async {
+    if (_activeAttachmentId == null) return;
+    var targetMs = target.inMilliseconds;
+    if (targetMs < 0) {
+      targetMs = 0;
+    }
+    final maxMs = _audioDuration?.inMilliseconds;
+    if (maxMs != null && targetMs > maxMs) {
+      targetMs = maxMs;
+    }
+    final normalized = Duration(milliseconds: targetMs);
+    try {
+      await _audioPlayer.seek(normalized);
+      if (!mounted) return;
+      setState(() {
+        _audioPosition = normalized;
+        _seekPreviewPosition = null;
+        _isUserSeekingAudio = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Audio seek error: $error');
+      debugPrint('$stackTrace');
+    }
+  }
+
+  Future<void> _seekAudioBy(Duration offset) async {
+    final current =
+        _seekPreviewPosition ?? _audioPosition;
+    await _seekAudioTo(current + offset);
   }
 
   Future<void> _toggleRecording(int spreadIndex) async {
@@ -1149,19 +1203,30 @@ class _NotebookEditorState extends State<NotebookEditor> {
         );
       case NotebookAttachmentType.audio:
         final isActive = attachment.id == _activeAttachmentId;
-        final position = isActive ? _audioPosition : Duration.zero;
+        final position =
+            isActive ? (_seekPreviewPosition ?? _audioPosition) : Duration.zero;
         final duration = isActive ? _audioDuration : null;
+        final durationMs = duration?.inMilliseconds ?? 0;
+        final positionMs = position.inMilliseconds;
+        final sliderMax = durationMs > 0 ? durationMs.toDouble() : 1.0;
+        final sliderValue = durationMs > 0
+            ? positionMs.clamp(0, durationMs).toDouble()
+            : 0.0;
         final progress =
-            isActive && duration != null && duration.inMilliseconds > 0
-                ? (position.inMilliseconds.clamp(
-                      0,
-                      duration.inMilliseconds,
-                    ) /
-                    duration.inMilliseconds)
-                : 0.0;
+            durationMs > 0 && sliderMax > 0 ? sliderValue / sliderMax : 0.0;
         final titleStyle = Theme.of(context).textTheme.bodyMedium;
         final durationLabel =
             duration != null ? _formatDuration(duration) : '--:--';
+        final positionLabel = _formatDuration(position);
+        final timeLabelStyle =
+            Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context)
+                      .textTheme
+                      .labelSmall
+                      ?.color
+                      ?.withValues(alpha: 0.7),
+                );
+        final controlsDisabled = _isAudioLoading;
 
         return Card(
           elevation: 0.8,
@@ -1219,21 +1284,104 @@ class _NotebookEditorState extends State<NotebookEditor> {
                 ),
                 if (isActive) ...[
                   const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: duration != null && duration.inMilliseconds > 0
-                        ? progress.toDouble().clamp(0.0, 1.0)
-                        : null,
-                  ),
+                  if (durationMs > 0)
+                    Slider(
+                      value: sliderValue,
+                      min: 0,
+                      max: sliderMax,
+                      onChangeStart: controlsDisabled
+                          ? null
+                          : (_) {
+                              setState(() {
+                                _isUserSeekingAudio = true;
+                                _seekPreviewPosition = position;
+                              });
+                            },
+                      onChanged: controlsDisabled
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _seekPreviewPosition =
+                                    Duration(milliseconds: value.round());
+                              });
+                            },
+                      onChangeEnd: controlsDisabled
+                          ? null
+                          : (value) {
+                              _seekAudioTo(Duration(milliseconds: value.round()));
+                            },
+                    )
+                  else
+                    LinearProgressIndicator(
+                      value: _isAudioPlaying ? null : progress,
+                    ),
                   const SizedBox(height: 6),
-                  Text(
-                    '${_formatDuration(position)} / $durationLabel',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.color
-                              ?.withValues(alpha: 0.7),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        positionLabel,
+                        style: timeLabelStyle,
+                      ),
+                      Text(
+                        durationLabel,
+                        style: timeLabelStyle,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Tooltip(
+                        message: 'Rewind 5 seconds',
+                        child: IconButton(
+                          icon: const Icon(Icons.replay_5_rounded),
+                          onPressed: controlsDisabled
+                              ? null
+                              : () => _seekAudioBy(
+                                    const Duration(seconds: -5),
+                                  ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: _isAudioPlaying ? 'Pause' : 'Play',
+                        child: IconButton.filled(
+                          iconSize: 32,
+                          onPressed: controlsDisabled
+                              ? null
+                              : () => _handleAudioAttachmentPressed(attachment),
+                          icon: Icon(
+                            _isAudioPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Stop playback',
+                        child: IconButton(
+                          icon: const Icon(Icons.stop_rounded),
+                          onPressed: controlsDisabled
+                              ? null
+                              : () => _stopAudioPlayback(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Skip forward 5 seconds',
+                        child: IconButton(
+                          icon: const Icon(Icons.forward_5_rounded),
+                          onPressed: controlsDisabled
+                              ? null
+                              : () => _seekAudioBy(
+                                    const Duration(seconds: 5),
+                                  ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
