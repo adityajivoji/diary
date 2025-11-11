@@ -243,6 +243,9 @@ class _NotebookViewerState extends State<NotebookViewer> {
                 ),
         );
       case NotebookAttachmentType.audio:
+        final displayName = (attachment.caption?.trim().isNotEmpty ?? false)
+            ? attachment.caption!.trim()
+            : p.basename(attachment.path);
         return Container(
           width: 220,
           padding: const EdgeInsets.all(12),
@@ -256,7 +259,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  p.basename(attachment.path),
+                  displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

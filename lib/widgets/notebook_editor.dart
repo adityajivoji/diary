@@ -754,6 +754,52 @@ class _NotebookEditorState extends State<NotebookEditor> {
     });
   }
 
+  Future<void> _promptRenameAttachment(NotebookAttachment attachment) async {
+    final currentValue = (attachment.caption?.trim().isNotEmpty ?? false)
+        ? attachment.caption!.trim()
+        : p.basename(attachment.path);
+    final controller = TextEditingController(text: currentValue);
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename recording'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Recording name',
+            ),
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (result == null) {
+      return;
+    }
+
+    final trimmed = result.trim();
+    await _updateAttachmentCaption(
+      attachment.id,
+      trimmed.isEmpty ? null : trimmed,
+    );
+  }
+
   double _normalizeAmplitude(double decibels) {
     const minDb = -60.0;
     final double clamped =
@@ -846,6 +892,27 @@ class _NotebookEditorState extends State<NotebookEditor> {
             updatedAttachment!.type == NotebookAttachmentType.image) {
           _loadAttachmentAspectRatio(updatedAttachment!);
         }
+        break;
+      }
+    }
+  }
+
+  Future<void> _updateAttachmentCaption(
+    String attachmentId,
+    String? caption,
+  ) async {
+    for (var i = 0; i < _spreads.length; i++) {
+      final index = _spreads[i]
+          .attachments
+          .indexWhere((attachment) => attachment.id == attachmentId);
+      if (index != -1) {
+        _updateAttachments(
+          i,
+          (list) {
+            list[index] = list[index].copyWith(caption: caption);
+            return list;
+          },
+        );
         break;
       }
     }
@@ -1505,6 +1572,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       ?.withValues(alpha: 0.7),
                 );
         final controlsDisabled = _isAudioLoading;
+        final displayName = (attachment.caption?.trim().isNotEmpty ?? false)
+            ? attachment.caption!.trim()
+            : p.basename(attachment.path);
 
         return Card(
           elevation: 0.8,
@@ -1549,10 +1619,21 @@ class _NotebookEditorState extends State<NotebookEditor> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        p.basename(attachment.path),
+                        displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle,
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'Rename recording',
+                      child: IconButton(
+                        style: IconButton.styleFrom(
+                          foregroundColor: controlColor,
+                          disabledForegroundColor: disabledControlColor,
+                        ),
+                        icon: const Icon(Icons.edit_rounded),
+                        onPressed: () => _promptRenameAttachment(attachment),
                       ),
                     ),
                     IconButton(
