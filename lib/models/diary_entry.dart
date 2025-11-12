@@ -170,8 +170,10 @@ class DiaryEntry extends HiveObject {
     DiaryEntryFormat? format,
     List<NotebookSpread>? notebookSpreads,
     this.notebookAppearance,
+    List<String>? tags,
   })  : format = format ?? DiaryEntryFormat.standard,
         notebookSpreads = notebookSpreads ?? <NotebookSpread>[],
+        tags = tags != null ? List<String>.from(tags) : <String>[],
         assert(
           !((format ?? DiaryEntryFormat.standard) == DiaryEntryFormat.notebook &&
               (notebookSpreads ?? <NotebookSpread>[]).isEmpty),
@@ -199,6 +201,9 @@ class DiaryEntry extends HiveObject {
   @HiveField(6)
   final NotebookAppearance? notebookAppearance;
 
+  @HiveField(7)
+  final List<String> tags;
+
   bool get usesNotebook => format == DiaryEntryFormat.notebook;
 
   String get diaryTitle => splitDiaryContent(content)['title']!;
@@ -225,6 +230,7 @@ class DiaryEntry extends HiveObject {
     List<NotebookSpread>? notebookSpreads,
     NotebookAppearance? notebookAppearance,
     bool clearNotebookAppearance = false,
+    List<String>? tags,
   }) {
     return DiaryEntry(
       id: id ?? this.id,
@@ -237,6 +243,7 @@ class DiaryEntry extends HiveObject {
       notebookAppearance: clearNotebookAppearance
           ? null
           : (notebookAppearance ?? this.notebookAppearance),
+      tags: tags ?? List<String>.from(this.tags),
     );
   }
 }

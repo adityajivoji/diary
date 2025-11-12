@@ -23,6 +23,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
+  late final TextEditingController _tagsController;
   late DateTime _selectedDate;
   late NotebookAppearance _notebookAppearance;
   DiaryEntryFormat _format = DiaryEntryFormat.standard;
@@ -41,6 +42,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     final contentParts = _splitEntryContent(initialContent);
     _titleController = TextEditingController(text: contentParts['title']!);
     _contentController = TextEditingController(text: contentParts['body']!);
+    _tagsController =
+        TextEditingController(text: _formatTags(entry?.tags ?? const []));
     if (_format == DiaryEntryFormat.notebook &&
         _titleController.text.isEmpty &&
         initialContent.isNotEmpty) {
@@ -76,6 +79,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -168,6 +172,26 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     return buffer.toString();
   }
 
+  List<String> _parseTags(String input) {
+    final rawTags = input.split(RegExp(r'[,\n]'));
+    final seen = <String>{};
+    final result = <String>[];
+    for (final raw in rawTags) {
+      final tag = raw.trim();
+      if (tag.isEmpty) continue;
+      final normalized = tag.toLowerCase();
+      if (seen.add(normalized)) {
+        result.add(tag);
+      }
+    }
+    return result;
+  }
+
+  String _formatTags(List<String> tags) {
+    if (tags.isEmpty) return '';
+    return tags.join(', ');
+  }
+
   Widget _buildEntryMetaSection(
     BuildContext context, {
     required bool isNotebook,
@@ -240,6 +264,23 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           style: theme.textTheme.bodySmall?.copyWith(
             color: onSurface.withValues(alpha: 0.7),
           ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Tags',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _tagsController,
+          decoration: const InputDecoration(
+            labelText: 'Tags',
+            hintText: 'Add tags separated by commas',
+            helperText: 'Examples: travel, gratitude, weekend',
+          ),
+          textCapitalization: TextCapitalization.sentences,
         ),
       ],
     );
@@ -437,6 +478,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     var content = _composeEntryContent();
     List<NotebookSpread> spreads = const [];
     NotebookAppearance? appearance;
+    final tags = _parseTags(_tagsController.text);
 
     if (_format == DiaryEntryFormat.notebook) {
       final hasContent = _notebookSpreads.any(
@@ -482,6 +524,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           notebookSpreads: spreads,
           notebookAppearance: appearance,
           clearNotebookAppearance: appearance == null,
+          tags: tags,
         ) ??
         DiaryEntry(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -491,6 +534,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           format: _format,
           notebookSpreads: spreads,
           notebookAppearance: appearance,
+          tags: tags,
         );
 
     if (_isEditing) {

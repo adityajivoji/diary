@@ -176,6 +176,24 @@ class EntryDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
+                  if (currentEntry.tags.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: currentEntry.tags
+                          .map(
+                            (tag) => Chip(
+                              label: Text(tag),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                   Center(
                     child: Text(
                       '✨ Keep shining. Your diary loves hearing from you.',

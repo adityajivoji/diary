@@ -20,13 +20,14 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
       format: DiaryEntryFormat.values[formatIndex],
       notebookSpreads: spreads,
       notebookAppearance: fields[6] as NotebookAppearance?,
+      tags: (fields[7] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, DiaryEntry obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -40,7 +41,9 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
       ..writeByte(5)
       ..write(obj.notebookSpreads)
       ..writeByte(6)
-      ..write(obj.notebookAppearance);
+      ..write(obj.notebookAppearance)
+      ..writeByte(7)
+      ..write(obj.tags);
   }
 }
 

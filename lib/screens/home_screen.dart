@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -206,12 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final filteredEntries = entries.where((entry) {
                     final matchesMood =
                         _selectedMood == null || entry.mood == _selectedMood;
-                    final String searchableText = entry.usesNotebook
-                        ? entry.notebookSummary.toLowerCase()
-                        : '${entry.diaryTitle} ${entry.diaryBody}'
-                            .toLowerCase();
-                    final matchesQuery = _searchQuery.isEmpty ||
-                        searchableText.contains(_searchQuery);
+                    final matchesQuery = _matchesSearchQuery(entry);
                     final matchesDate = _selectedDateRange == null ||
                         _isWithinRange(entry.date, _selectedDateRange!);
                     return matchesMood && matchesQuery && matchesDate;
@@ -322,5 +319,172 @@ class _HomeScreenState extends State<HomeScreen> {
     final startText = _dateFilterFormat.format(range.start);
     final endText = _dateFilterFormat.format(range.end);
     return '$startText - $endText';
+  }
+
+  bool _matchesSearchQuery(DiaryEntry entry) {
+    if (_searchQuery.isEmpty) {
+      return true;
+    }
+    final query = _searchQuery;
+    final parts = _collectSearchParts(entry);
+
+    if (parts.isEmpty) {
+      return false;
+    }
+
+    if (query.length >= 2 && parts.any((part) => part.contains(query))) {
+      return true;
+    }
+
+    final tokens = query
+        .split(RegExp(r'\s+'))
+        .map((token) => token.trim())
+        .where((token) => token.isNotEmpty && token.length > 1)
+        .toList();
+
+    if (tokens.isEmpty) {
+      return parts.any((part) => _tokenMatchesPart(query, part));
+    }
+
+    for (final token in tokens) {
+      final matchesToken =
+          parts.any((part) => _tokenMatchesPart(token, part));
+      if (!matchesToken) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<String> _collectSearchParts(DiaryEntry entry) {
+    final parts = <String>[];
+
+    if (entry.usesNotebook) {
+      if (entry.notebookSummary.trim().isNotEmpty) {
+        final normalized = _normalizePart(entry.notebookSummary);
+        if (normalized != null) {
+          parts.add(normalized);
+        }
+      }
+      for (final spread in entry.notebookSpreads) {
+        if (spread.text.trim().isNotEmpty) {
+          final normalized = _normalizePart(spread.text);
+          if (normalized != null) {
+            parts.add(normalized);
+          }
+        }
+      }
+    } else {
+      final title = entry.diaryTitle.trim();
+      final body = entry.diaryBody.trim();
+      final normalizedTitle = _normalizePart(title);
+      final normalizedBody = _normalizePart(body);
+      if (normalizedTitle != null) parts.add(normalizedTitle);
+      if (normalizedBody != null) parts.add(normalizedBody);
+    }
+
+    for (final tag in entry.tags) {
+      final trimmed = tag.trim();
+      if (trimmed.isNotEmpty) {
+        final normalized = _normalizePart(trimmed);
+        if (normalized != null) {
+          parts.add(normalized);
+        }
+      }
+    }
+
+    if (parts.isEmpty && entry.content.trim().isNotEmpty) {
+      final normalized = _normalizePart(entry.content);
+      if (normalized != null) {
+        parts.add(normalized);
+      }
+    }
+
+    return parts;
+  }
+
+  bool _tokenMatchesPart(String token, String part) {
+    if (part.contains(token)) {
+      return true;
+    }
+
+    if (token.length <= 2) {
+      return false;
+    }
+
+    final words = part
+        .split(RegExp(r'\s+'))
+        .map((word) => word.replaceAll(RegExp(r'[^a-z0-9]'), ''))
+        .where((word) => word.isNotEmpty)
+        .toList();
+
+    final threshold = _similarityThreshold(token.length);
+
+    for (final word in words) {
+      final similarity = _similarity(word, token);
+      if (similarity >= threshold) {
+        return true;
+      }
+    }
+
+    if (token.contains(' ') && part.length > token.length) {
+      final similarity = _similarity(part, token);
+      if (similarity >= threshold) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  double _similarityThreshold(int tokenLength) {
+    if (tokenLength >= 8) return 0.6;
+    if (tokenLength >= 5) return 0.7;
+    return 0.8;
+  }
+
+  double _similarity(String a, String b) {
+    if (a == b) return 1;
+    if (a.isEmpty || b.isEmpty) return 0;
+    final distance = _levenshtein(a, b);
+    final maxLength = math.max(a.length, b.length);
+    if (maxLength == 0) return 1;
+    return 1 - distance / maxLength;
+  }
+
+  String? _normalizePart(String text, {int maxLength = 500}) {
+    final trimmed = text.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    if (trimmed.length <= maxLength) {
+      return trimmed;
+    }
+    return trimmed.substring(0, maxLength);
+  }
+
+  int _levenshtein(String a, String b) {
+    final m = a.length;
+    final n = b.length;
+    if (m == 0) return n;
+    if (n == 0) return m;
+
+    var previousRow = List<int>.generate(n + 1, (index) => index);
+    var currentRow = List<int>.filled(n + 1, 0);
+
+    for (var i = 1; i <= m; i++) {
+      currentRow[0] = i;
+      for (var j = 1; j <= n; j++) {
+        final cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
+        currentRow[j] = math.min(
+          math.min(currentRow[j - 1] + 1, previousRow[j] + 1),
+          previousRow[j - 1] + cost,
+        );
+      }
+      previousRow = currentRow;
+      currentRow = List<int>.filled(n + 1, 0);
+    }
+
+    return previousRow[n];
   }
 }
