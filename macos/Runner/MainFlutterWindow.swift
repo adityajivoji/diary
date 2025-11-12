@@ -9,6 +9,8 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(windowFrame, display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    SecurityScopedBookmarkBridge.shared.configure(
+      with: flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
   }
