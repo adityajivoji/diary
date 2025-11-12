@@ -23,7 +23,17 @@ class EntryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final accentColor =
         theme.colorScheme.secondaryContainer.withValues(alpha: 0.6);
-    final summary = entry.usesNotebook ? entry.notebookSummary : entry.content;
+    final summary = entry.usesNotebook
+        ? entry.notebookSummary
+        : (() {
+            final title = entry.diaryTitle;
+            final body = entry.diaryBody;
+            if (title.isNotEmpty && body.isNotEmpty) {
+              return '$title\n$body';
+            }
+            if (title.isNotEmpty) return title;
+            return body;
+          })();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),

@@ -157,13 +157,22 @@ class EntryDetailScreen extends StatelessWidget {
                               spreads: currentEntry.notebookSpreads,
                               appearance: currentEntry.notebookAppearance,
                             )
-                          : Text(
-                              currentEntry.content,
-                              key: const ValueKey('text-entry'),
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                height: 1.5,
-                              ),
-                            ),
+                          : (() {
+                              final title = currentEntry.diaryTitle;
+                              final body = currentEntry.diaryBody;
+                              final text = title.isNotEmpty && body.isNotEmpty
+                                  ? '$title\n\n$body'
+                                  : title.isNotEmpty
+                                      ? title
+                                      : body;
+                              return Text(
+                                text,
+                                key: const ValueKey('text-entry'),
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  height: 1.5,
+                                ),
+                              );
+                            })(),
                     ),
                   ),
                   const SizedBox(height: 32),

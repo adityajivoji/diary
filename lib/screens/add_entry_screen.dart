@@ -21,6 +21,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final DiaryRepository _repository = DiaryRepository.instance;
 
+  late final TextEditingController _titleController;
   late final TextEditingController _contentController;
   late DateTime _selectedDate;
   late NotebookAppearance _notebookAppearance;
@@ -35,10 +36,18 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   void initState() {
     super.initState();
     final entry = widget.entry;
-    _contentController = TextEditingController(text: entry?.content ?? '');
+    _format = entry?.format ?? DiaryEntryFormat.standard;
+    final initialContent = entry?.content ?? '';
+    final contentParts = _splitEntryContent(initialContent);
+    _titleController = TextEditingController(text: contentParts['title']!);
+    _contentController = TextEditingController(text: contentParts['body']!);
+    if (_format == DiaryEntryFormat.notebook &&
+        _titleController.text.isEmpty &&
+        initialContent.isNotEmpty) {
+      _titleController.text = initialContent.trim();
+    }
     _selectedDate = entry?.date ?? DateTime.now();
     _selectedMood = entry?.mood ?? Mood.happy;
-    _format = entry?.format ?? DiaryEntryFormat.standard;
     if (_format == DiaryEntryFormat.notebook && entry != null) {
       _notebookSpreads = entry.notebookSpreads.isEmpty
           ? <NotebookSpread>[NotebookSpread()]
@@ -65,6 +74,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _contentController.dispose();
     super.dispose();
   }
@@ -88,7 +98,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     FocusScope.of(context).unfocus();
     setState(() {
       if (format == DiaryEntryFormat.notebook) {
-        final text = _contentController.text.trim();
+        final text = _composePlainEntryText();
         if (text.isNotEmpty) {
           if (_notebookSpreads.isEmpty) {
             _notebookSpreads = <NotebookSpread>[NotebookSpread(text: text)];
@@ -100,7 +110,9 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           _notebookSpreads.isNotEmpty) {
         final firstText = _notebookSpreads.first.text.trim();
         if (firstText.isNotEmpty) {
-          _contentController.text = firstText;
+          final parts = _splitEntryContent(firstText);
+          _titleController.text = parts['title']!;
+          _contentController.text = parts['body']!;
         }
       }
       _format = format;
@@ -112,6 +124,125 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       _notebookSpreads = value.spreads;
       _notebookAppearance = value.appearance;
     });
+  }
+
+  Map<String, String> _splitEntryContent(String text) =>
+      DiaryEntry.splitDiaryContent(text);
+
+  String _composePlainEntryText() {
+    final title = _titleController.text.trim();
+    final body = _contentController.text.trim();
+
+    if (title.isEmpty && body.isEmpty) {
+      return '';
+    }
+    if (title.isEmpty) {
+      return body;
+    }
+    if (body.isEmpty) {
+      return title;
+    }
+    return '$title\n\n$body';
+  }
+
+  String _composeEntryContent() {
+    final title = _titleController.text.trim();
+    final body = _contentController.text.trim();
+
+    if (title.isEmpty && body.isEmpty) {
+      return '';
+    }
+    if (title.isEmpty) {
+      return body;
+    }
+
+    final buffer = StringBuffer(DiaryEntry.titleStartToken)
+      ..write(title)
+      ..write(DiaryEntry.titleEndToken);
+
+    if (body.isNotEmpty) {
+      buffer.write('\n');
+      buffer.write(body);
+    }
+
+    return buffer.toString();
+  }
+
+  Widget _buildEntryMetaSection(
+    BuildContext context, {
+    required bool isNotebook,
+  }) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final outlineColor = onSurface.withValues(alpha: 0.28);
+    final infoText = isNotebook
+        ? 'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.'
+        : 'Diary mode keeps things simple with a single flowing page for your thoughts.';
+    final titleHint = isNotebook
+        ? 'Give this notebook entry a short title'
+        : 'Give this diary entry a short title';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Title',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: ValueKey(isNotebook
+              ? 'notebook-title-field'
+              : 'diary-title-field'),
+          controller: _titleController,
+          decoration: InputDecoration(
+            labelText: 'Title',
+            hintText: titleHint,
+          ),
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Date',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _pickDate,
+          icon: const Icon(Icons.calendar_today_rounded),
+          label: Text(_dateLabel),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: onSurface,
+            side: BorderSide(color: outlineColor),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Choose a mood',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        MoodSelector(
+          selectedMood: _selectedMood,
+          onMoodSelected: (mood) =>
+              setState(() => _selectedMood = mood ?? Mood.happy),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          infoText,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildModeSelector(BuildContext context) {
@@ -151,7 +282,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             children: [
               Icon(Icons.edit_note_rounded),
               SizedBox(width: 8),
-              Text('Default entry'),
+              Text('Flow'),
             ],
           ),
         ),
@@ -170,133 +301,35 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
   }
 
-  Widget _buildCommonMetaSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final mood = _selectedMood ?? Mood.happy;
-    final surfaceColor = theme.brightness == Brightness.dark
-        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.85);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today_rounded),
-                label: Text(
-                  '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Text(
-                  'Mood: ${mood.emoji} ${mood.label}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        MoodSelector(
-          selectedMood: _selectedMood,
-          onMoodSelected: (mood) =>
-              setState(() => _selectedMood = mood ?? Mood.happy),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNotebookMetaSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-    final outlineColor = onSurface.withValues(alpha: 0.28);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Notebook title',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          key: const ValueKey('notebook-title-field'),
-          controller: _contentController,
-          decoration: const InputDecoration(
-            labelText: 'Title',
-            hintText: 'Give this notebook entry a short title',
-          ),
-          textCapitalization: TextCapitalization.sentences,
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Date',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _pickDate,
-          icon: const Icon(Icons.calendar_today_rounded),
-          label: Text(
-            '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: onSurface,
-            side: BorderSide(color: outlineColor),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Choose a mood',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        MoodSelector(
-          selectedMood: _selectedMood,
-          onMoodSelected: (mood) =>
-              setState(() => _selectedMood = mood ?? Mood.happy),
-        ),
-      ],
-    );
-  }
-
   Mood get _resolvedMood => _selectedMood ?? Mood.happy;
 
   String get _dateLabel =>
       '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
-  String get _notebookDetailsSummary {
-    final title = _contentController.text.trim();
-    final titleLabel =
-        title.isEmpty ? 'Untitled notebook' : title.replaceAll('\n', ' ');
+  String get _entryDetailsSummary {
+    final titleText = _titleController.text.trim();
+    final bodyText = _contentController.text.trim();
     final mood = _resolvedMood;
+    final bool usesNotebook = _format == DiaryEntryFormat.notebook;
+
+    String titleLabel;
+    if (titleText.isNotEmpty) {
+      titleLabel = titleText.replaceAll('\n', ' ');
+    } else if (bodyText.isNotEmpty) {
+      final firstLine = bodyText.split('\n').first.trim();
+      if (firstLine.isEmpty) {
+        titleLabel = usesNotebook ? 'Untitled notebook' : 'Diary entry';
+      } else {
+        titleLabel = firstLine;
+      }
+    } else {
+      titleLabel = usesNotebook ? 'Untitled notebook' : 'Diary entry';
+    }
+
     return '$titleLabel • $_dateLabel • ${mood.emoji} ${mood.label}';
   }
 
   Widget _buildStandardLayout(BuildContext context) {
-    final mood = _resolvedMood;
-
     return SingleChildScrollView(
       key: const ValueKey('standard-layout'),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -306,9 +339,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           _buildModeSelector(context),
           const SizedBox(height: 20),
           CollapsibleSection(
-            title: 'Date & mood',
-            subtitle: '$_dateLabel • ${mood.emoji} ${mood.label}',
-            child: _buildCommonMetaSection(context),
+            title: 'Diary details',
+            subtitle: _entryDetailsSummary,
+            showSubtitleWhenExpanded: false,
+            child: _buildEntryMetaSection(context, isNotebook: false),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -319,6 +353,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             decoration: const InputDecoration(
               hintText: 'Dear diary...',
             ),
+            onChanged: (_) => setState(() {}),
             validator: (value) {
               if (_format == DiaryEntryFormat.notebook) {
                 return null;
@@ -341,7 +376,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   }
 
   Widget _buildNotebookLayout(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       key: const ValueKey('notebook-layout'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -361,21 +395,9 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                       const SizedBox(height: 12),
                       CollapsibleSection(
                         title: 'Notebook details',
-                        subtitle: _notebookDetailsSummary,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildNotebookMetaSection(context),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Notebook mode lets you pair your writing with photos, drawings and audio on a double-page spread.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
-                        ),
+                        subtitle: _entryDetailsSummary,
+                        showSubtitleWhenExpanded: false,
+                        child: _buildEntryMetaSection(context, isNotebook: true),
                       ),
                     ],
                   )
@@ -412,7 +434,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     }
 
     final mood = _selectedMood ?? Mood.happy;
-    var content = _contentController.text.trim();
+    var content = _composeEntryContent();
     List<NotebookSpread> spreads = const [];
     NotebookAppearance? appearance;
 
@@ -440,7 +462,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
           )
           .toList();
-      final title = content;
+      final title = _titleController.text.trim();
       final summary = spreads.first.text.trim();
       if (title.isNotEmpty) {
         content = title;
@@ -581,6 +603,7 @@ class _NotebookToolbarState extends State<_NotebookToolbar> {
                     CollapsibleSection(
                       title: 'Notebook details',
                       subtitle: widget.detailsSummary,
+                      showSubtitleWhenExpanded: false,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

@@ -13,6 +13,7 @@ class CollapsibleSection extends StatefulWidget {
     this.elevation = 0,
     this.backgroundColor,
     this.shadowColor,
+    this.showSubtitleWhenExpanded = true,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class CollapsibleSection extends StatefulWidget {
   final double elevation;
   final Color? backgroundColor;
   final Color? shadowColor;
+  final bool showSubtitleWhenExpanded;
 
   @override
   State<CollapsibleSection> createState() => _CollapsibleSectionState();
@@ -47,7 +49,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtitle = widget.subtitle;
+    final subtitleText = widget.subtitle;
+    final bool shouldShowSubtitle = subtitleText != null &&
+        (!_isExpanded || widget.showSubtitleWhenExpanded);
 
     final header = ListTile(
       contentPadding:
@@ -58,9 +62,9 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
           fontWeight: FontWeight.w600,
         ),
       ),
-      subtitle: subtitle != null
+      subtitle: shouldShowSubtitle
           ? Text(
-              subtitle,
+              subtitleText,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),

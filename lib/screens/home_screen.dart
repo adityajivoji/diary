@@ -206,8 +206,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   final filteredEntries = entries.where((entry) {
                     final matchesMood =
                         _selectedMood == null || entry.mood == _selectedMood;
+                    final String searchableText = entry.usesNotebook
+                        ? entry.notebookSummary.toLowerCase()
+                        : '${entry.diaryTitle} ${entry.diaryBody}'
+                            .toLowerCase();
                     final matchesQuery = _searchQuery.isEmpty ||
-                        entry.content.toLowerCase().contains(_searchQuery);
+                        searchableText.contains(_searchQuery);
                     final matchesDate = _selectedDateRange == null ||
                         _isWithinRange(entry.date, _selectedDateRange!);
                     return matchesMood && matchesQuery && matchesDate;

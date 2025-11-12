@@ -143,6 +143,25 @@ class NotebookAppearance {
 
 @HiveType(typeId: 1)
 class DiaryEntry extends HiveObject {
+  static const String titleStartToken = '{#title#}';
+  static const String titleEndToken = '{#/title#}';
+
+  static Map<String, String> splitDiaryContent(String content) {
+    if (!content.startsWith(titleStartToken)) {
+      return {'title': '', 'body': content};
+    }
+    final endIndex =
+        content.indexOf(titleEndToken, titleStartToken.length);
+    if (endIndex == -1) {
+      return {'title': '', 'body': content};
+    }
+    final title =
+        content.substring(titleStartToken.length, endIndex).trim();
+    final body =
+        content.substring(endIndex + titleEndToken.length).trimLeft();
+    return {'title': title, 'body': body};
+  }
+
   DiaryEntry({
     required this.id,
     required this.date,
@@ -181,6 +200,10 @@ class DiaryEntry extends HiveObject {
   final NotebookAppearance? notebookAppearance;
 
   bool get usesNotebook => format == DiaryEntryFormat.notebook;
+
+  String get diaryTitle => splitDiaryContent(content)['title']!;
+
+  String get diaryBody => splitDiaryContent(content)['body']!;
 
   String get notebookSummary {
     if (!usesNotebook || notebookSpreads.isEmpty) {
