@@ -1409,11 +1409,23 @@ class _NotebookEditorState extends State<NotebookEditor> {
       ),
     );
 
+    final mediaSection = _buildMediaActionsSection(theme, overlay);
+    final pageControlsSection = _buildPageControlsSection(
+      theme: theme,
+      overlay: overlay,
+      onSurface: onSurface,
+      outlineColor: outlineColor,
+    );
+
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         panel,
+        const SizedBox(height: 12),
+        mediaSection,
+        const SizedBox(height: 12),
+        pageControlsSection,
         if (footer != null) ...[
           const SizedBox(height: 12),
           footer,
@@ -2043,9 +2055,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
     required Color onSurface,
     required Color disabledColor,
     required Color outlineColor,
-    required bool includeSpacer,
   }) {
-    final controls = <Widget>[
+    return [
       IconButton.filledTonal(
         onPressed: _currentPage > 0
             ? () {
@@ -2062,7 +2073,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
           disabledForegroundColor: disabledColor,
         ),
       ),
-      const SizedBox(width: 8),
       IconButton.filledTonal(
         onPressed: _currentPage < _spreads.length - 1
             ? () {
@@ -2079,7 +2089,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
           disabledForegroundColor: disabledColor,
         ),
       ),
-      const SizedBox(width: 12),
       ElevatedButton.icon(
         onPressed: () => _addPageAfter(_currentPage),
         icon: const Icon(Icons.add_rounded),
@@ -2089,7 +2098,14 @@ class _NotebookEditorState extends State<NotebookEditor> {
           backgroundColor: theme.colorScheme.secondary,
         ),
       ),
-      const SizedBox(width: 12),
+      IconButton(
+        onPressed: () => _deletePage(_currentPage),
+        tooltip: 'Delete page',
+        icon: Icon(
+          Icons.delete_rounded,
+          color: theme.colorScheme.error,
+        ),
+      ),
       OutlinedButton.icon(
         onPressed: _goToPage,
         icon: const Icon(Icons.menu_book_rounded),
@@ -2099,93 +2115,130 @@ class _NotebookEditorState extends State<NotebookEditor> {
           side: BorderSide(color: outlineColor),
         ),
       ),
-      const SizedBox(width: 12),
-      IconButton(
-        onPressed: () => _deletePage(_currentPage),
-        tooltip: 'Delete page',
-        icon: Icon(
-          Icons.delete_rounded,
-          color: theme.colorScheme.error,
-        ),
-      ),
     ];
-
-    if (includeSpacer) {
-      controls
-        ..add(const Spacer())
-        ..add(const SizedBox(width: 8));
-    } else {
-      controls.add(const SizedBox(width: 12));
-    }
-
-    controls
-      ..add(
-        FilledButton.tonalIcon(
-          onPressed: () => _handleAddImage(_currentPage, ImageSource.gallery),
-          icon: const Icon(Icons.photo_library_rounded),
-          label: const Text('Gallery'),
-        ),
-      )
-      ..add(const SizedBox(width: 8))
-      ..add(
-        FilledButton.tonalIcon(
-          onPressed: () => _handleAddAudio(_currentPage),
-          icon: const Icon(Icons.audiotrack_rounded),
-          label: const Text('Audio'),
-        ),
-      )
-      ..add(const SizedBox(width: 8))
-      ..add(
-        FilledButton.tonalIcon(
-          onPressed: () => _toggleRecording(_currentPage),
-          icon: Icon(
-            _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-          ),
-          label: Text(_isRecording ? 'Stop' : 'Record'),
-        ),
-      );
-
-    return controls;
   }
 
-  Widget _buildPageControls(double width) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
+  List<Widget> _buildMediaActionButtons() {
+    return [
+      FilledButton.tonalIcon(
+        onPressed: () => _handleAddImage(_currentPage, ImageSource.gallery),
+        icon: const Icon(Icons.photo_library_rounded),
+        label: const Text('Gallery'),
+      ),
+      FilledButton.tonalIcon(
+        onPressed: () => _handleAddAudio(_currentPage),
+        icon: const Icon(Icons.audiotrack_rounded),
+        label: const Text('Audio'),
+      ),
+      FilledButton.tonalIcon(
+        onPressed: () => _toggleRecording(_currentPage),
+        icon: Icon(
+          _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+        ),
+        label: Text(_isRecording ? 'Stop' : 'Record'),
+      ),
+    ];
+  }
+
+  Widget _buildActionSection({
+    required ThemeData theme,
+    required bool overlay,
+    required String title,
+    required Widget child,
+  }) {
+    final isDark = theme.brightness == Brightness.dark;
+    final Color backgroundColor = overlay
+        ? (isDark
+            ? theme.colorScheme.surface.withValues(alpha: 0.95)
+            : theme.colorScheme.surface)
+        : theme.colorScheme.surface;
+    final Color? shadowColor =
+        overlay ? Colors.black.withValues(alpha: isDark ? 0.4 : 0.18) : null;
+    final EdgeInsetsGeometry margin =
+        overlay ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 16);
+    final EdgeInsetsGeometry padding = overlay
+        ? const EdgeInsets.fromLTRB(20, 16, 20, 20)
+        : const EdgeInsets.fromLTRB(16, 12, 16, 16);
+
+    return Card(
+      margin: margin,
+      elevation: overlay ? 8 : 0,
+      shadowColor: shadowColor,
+      color: backgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaActionsSection(ThemeData theme, bool overlay) {
+    return _buildActionSection(
+      theme: theme,
+      overlay: overlay,
+      title: 'Capture & attach',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _buildMediaActionButtons(),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _isRecording
+                ? Padding(
+                    key: const ValueKey('recording-indicator'),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _buildRecordingStatus(theme),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageControlsSection({
+    required ThemeData theme,
+    required bool overlay,
+    required Color onSurface,
+    required Color outlineColor,
+  }) {
     final disabledColor = onSurface.withValues(alpha: 0.32);
-    final outlineColor = onSurface.withValues(alpha: 0.28);
     final controls = _buildPageControlButtons(
       theme: theme,
       onSurface: onSurface,
       disabledColor: disabledColor,
       outlineColor: outlineColor,
-      includeSpacer: true,
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Align(
-        alignment: Alignment.center,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: width),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(children: controls),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                child: _isRecording
-                    ? Padding(
-                        key: const ValueKey('recording-indicator'),
-                        padding: const EdgeInsets.only(top: 16),
-                        child: _buildRecordingStatus(theme),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
+    return _buildActionSection(
+      theme: theme,
+      overlay: overlay,
+      title: 'Page controls',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: controls,
       ),
     );
   }
@@ -2237,8 +2290,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               pagerView,
-              const SizedBox(height: 16),
-              _buildPageControls(notebookWidth),
+              const SizedBox(height: 24),
             ],
           ),
         );
