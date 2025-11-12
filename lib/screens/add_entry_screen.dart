@@ -554,10 +554,14 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   }
 
   Widget _buildNotebookExtrasToggle(BuildContext context) {
+    final theme = Theme.of(context);
     return Align(
       alignment: Alignment.centerLeft,
       child: OutlinedButton.icon(
         onPressed: _toggleNotebookExtras,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: theme.colorScheme.onSurface,
+        ),
         icon: Icon(
           _showNotebookExtras
               ? Icons.unfold_less_rounded
@@ -674,6 +678,9 @@ class _NotebookToolbarState extends State<_NotebookToolbar> {
                 _showDetails = !_showDetails;
               });
             },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: onSurface,
+            ),
             icon: Icon(
               _showDetails
                   ? Icons.unfold_less_rounded

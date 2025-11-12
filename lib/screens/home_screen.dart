@@ -248,6 +248,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       children: [
@@ -255,24 +257,35 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            color: Colors.white.withValues(alpha: 0.9),
+            color: theme.cardColor,
+            border: Border.all(
+              color: onSurface.withValues(alpha: 0.08),
+            ),
           ),
           child: Column(
             children: [
-              const Text(
+              Text(
                 'No entries yet!',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: onSurface,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
                 'Tap the cupcake to tell your story for today. '
                 'Add how you feel, then come back later to read your memories.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: onSurface.withValues(alpha: 0.78),
+                ),
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(
                 onPressed: _openAddEntry,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: onSurface,
+                ),
                 icon: const Text('🧁', style: TextStyle(fontSize: 20)),
                 label: const Text('Add your first entry'),
               ),

@@ -1924,7 +1924,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     final double fontHeight = font.height ?? 1.6;
     final inputDecoration = InputDecoration(
       border: InputBorder.none,
-      hintText: 'Your story goes here...',
+      hintText: 'start writing here...',
       hintStyle: font.copyWith(
         color: textColor.withValues(alpha: 0.5),
       ),

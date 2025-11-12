@@ -801,7 +801,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
         final theme = Theme.of(context);
         final controlColor = _effectiveAppearance.attachmentIconColor;
         final disabledControlColor = controlColor.withValues(alpha: 0.4);
-        final textColor = theme.colorScheme.onSurface.withValues(alpha: 0.9);
+        final textColor = controlColor;
         final durationLabel =
             duration != null ? _formatDuration(duration) : '--:--';
         final positionLabel = _formatDuration(position);

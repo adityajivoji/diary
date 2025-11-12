@@ -23,6 +23,7 @@ class EntryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final accentColor =
         theme.colorScheme.secondaryContainer.withValues(alpha: 0.6);
+    final notebookAccent = theme.colorScheme.secondary;
     final summary = entry.usesNotebook
         ? entry.notebookSummary
         : (() {
@@ -88,13 +89,13 @@ class EntryCard extends StatelessWidget {
                               Icon(
                                 Icons.menu_book_rounded,
                                 size: 16,
-                                color: theme.colorScheme.primary,
+                                color: notebookAccent,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Notebook entry',
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.primary,
+                                  color: notebookAccent,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

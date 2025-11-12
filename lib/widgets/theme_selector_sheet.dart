@@ -67,7 +67,7 @@ class ThemeSelectorSheet extends StatelessWidget {
                 subtitle: Text(option.description),
                 trailing: controller.currentTheme == option
                     ? Icon(Icons.check_rounded,
-                        color: theme.colorScheme.primary)
+                        color: theme.colorScheme.onSurface)
                     : null,
                 onTap: () => _selectTheme(context, option),
               ),
