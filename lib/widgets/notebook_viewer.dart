@@ -1035,7 +1035,7 @@ class _NotebookViewerState extends State<NotebookViewer> {
                             lineCount: targetLineCount,
                             child: Text(
                               spread.text.isEmpty
-                                  ? 'Nothing written on this page yet.'
+                                  ? ''
                                   : spread.text,
                               style: textStyle,
                             ),

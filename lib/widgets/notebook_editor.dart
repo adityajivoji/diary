@@ -185,10 +185,22 @@ class _NotebookEditorState extends State<NotebookEditor> {
       imageQuality: 85,
     );
     if (file == null) return;
+
+    var finalPath = file.path;
+    if (!kIsWeb) {
+      try {
+        finalPath = await _storePickedImage(file);
+      } catch (error, stackTrace) {
+        debugPrint('Failed to persist picked image ${file.path}: $error');
+        debugPrint('$stackTrace');
+        finalPath = _expandUserPath(file.path);
+      }
+    }
+
     final attachment = NotebookAttachment(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       type: NotebookAttachmentType.image,
-      path: file.path,
+      path: finalPath,
     );
     _updateAttachments(spreadIndex, (list) => list..add(attachment));
   }
@@ -815,6 +827,64 @@ class _NotebookEditorState extends State<NotebookEditor> {
       await directory.create(recursive: true);
     }
     return directory;
+  }
+
+  Future<Directory> _getImageStorageDirectory() async {
+    final documents = await getApplicationDocumentsDirectory();
+    final directory = Directory(p.join(documents.path, 'pastel_diary_images'));
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    return directory;
+  }
+
+  Future<String> _storePickedImage(XFile file) async {
+    if (kIsWeb) {
+      return file.path;
+    }
+    final imageDir = await _getImageStorageDirectory();
+    final normalizedSource = _expandUserPath(file.path);
+    if (normalizedSource.isNotEmpty &&
+        p.isWithin(imageDir.path, normalizedSource) &&
+        await File(normalizedSource).exists()) {
+      return normalizedSource;
+    }
+
+    final timestamp = DateTime.now().microsecondsSinceEpoch.toString();
+    final baseNameCandidate = file.name.isNotEmpty
+        ? file.name
+        : (normalizedSource.isNotEmpty
+            ? p.basename(normalizedSource)
+            : 'image_$timestamp');
+    var nameWithoutExtension = p.basenameWithoutExtension(baseNameCandidate);
+    if (nameWithoutExtension.trim().isEmpty) {
+      nameWithoutExtension = 'image_$timestamp';
+    }
+    var extension = p.extension(baseNameCandidate);
+    if (extension.isEmpty) {
+      extension = '.jpg';
+    }
+
+    var destination = p.join(imageDir.path, '$nameWithoutExtension$extension');
+    var counter = 1;
+    while (await File(destination).exists()) {
+      destination = p.join(
+        imageDir.path,
+        '${nameWithoutExtension}_$counter$extension',
+      );
+      counter++;
+    }
+
+    try {
+      await file.saveTo(destination);
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save picked image via saveTo: $error');
+      debugPrint('$stackTrace');
+      final bytes = await file.readAsBytes();
+      await File(destination).writeAsBytes(bytes);
+    }
+
+    return destination;
   }
 
   Future<String> _copyToAudioStorage(String sourcePath) async {
