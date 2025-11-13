@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/custom_mood.dart';
 import '../models/mood.dart';
+import 'diary_repository.dart';
 
 /// Provides access to default and custom moods.
 class MoodRepository {
@@ -30,7 +31,10 @@ class MoodRepository {
     return mood;
   }
 
-  bool labelExists(String label) {
+  bool labelExists(
+    String label, {
+    String? excludeId,
+  }) {
     final normalized = label.trim().toLowerCase();
     for (final mood in Mood.defaults) {
       if (mood.label.toLowerCase() == normalized) {
@@ -38,7 +42,9 @@ class MoodRepository {
       }
     }
     return _box.values.any(
-      (mood) => mood.label.trim().toLowerCase() == normalized,
+      (mood) =>
+          mood.label.trim().toLowerCase() == normalized &&
+          (excludeId == null || mood.id != excludeId),
     );
   }
 
@@ -56,6 +62,41 @@ class MoodRepository {
     );
     await _box.put(customMood.id, customMood);
     return customMood.toMood();
+  }
+
+  Future<Mood> updateCustomMood({
+    required String id,
+    required String emoji,
+    required String label,
+  }) async {
+    if (Mood.defaults.any((mood) => mood.id == id)) {
+      throw ArgumentError.value(id, 'id', 'Cannot edit a default mood.');
+    }
+    final existing = _box.get(id);
+    if (existing == null) {
+      throw ArgumentError.value(id, 'id', 'Mood not found.');
+    }
+    final trimmedEmoji = emoji.trim();
+    final trimmedLabel = label.trim();
+    final updatedMood = CustomMood(
+      id: id,
+      emoji: trimmedEmoji,
+      label: _titleCase(trimmedLabel),
+    );
+    await _box.put(id, updatedMood);
+    final mood = updatedMood.toMood();
+    await DiaryRepository.instance.refreshMoodSnapshots(mood);
+    return mood;
+  }
+
+  Future<void> deleteCustomMood(String id) async {
+    if (Mood.defaults.any((mood) => mood.id == id)) {
+      throw ArgumentError.value(id, 'id', 'Cannot delete a default mood.');
+    }
+    if (!_box.containsKey(id)) {
+      return;
+    }
+    await _box.delete(id);
   }
 
   String _generateId(String label) {

@@ -40,6 +40,11 @@ class EntryDetailScreen extends StatelessWidget {
       builder: (context, box, _) {
         final currentEntry = box.get(entry.id) ?? entry;
         final isNotebook = currentEntry.usesNotebook;
+        final currentMoods = currentEntry.moods;
+        final primaryMood = currentMoods.first;
+        final moodSummary = currentMoods.length > 1
+            ? '${primaryMood.label} (+${currentMoods.length - 1} more)'
+            : primaryMood.label;
 
         return Scaffold(
           appBar: AppBar(
@@ -54,13 +59,13 @@ class EntryDetailScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      currentEntry.mood.emoji,
+                      primaryMood.emoji,
                       style: const TextStyle(fontSize: 18),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        '${currentEntry.mood.label} • ${_dateFormat.format(currentEntry.date)}',
+                        '$moodSummary • ${_dateFormat.format(currentEntry.date)}',
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: scheme.onSurface.withValues(alpha: 0.7),
                         ),
@@ -176,6 +181,22 @@ class EntryDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: currentMoods
+                        .map(
+                          (mood) => Chip(
+                            label: Text('${mood.emoji} ${mood.label}'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 24),
                   if (currentEntry.tags.isNotEmpty) ...[
                     Wrap(
                       spacing: 12,

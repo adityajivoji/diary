@@ -32,6 +32,26 @@ class DiaryRepository {
     await _box.delete(id);
   }
 
+  Future<void> refreshMoodSnapshots(Mood mood) async {
+    final entriesNeedingUpdate = _box.values.where(
+      (entry) => entry.moods.any((item) => item.id == mood.id),
+    );
+    for (final entry in entriesNeedingUpdate) {
+      final updatedMoods = entry.moods
+          .map(
+            (current) => current.id == mood.id
+                ? current.copyWith(
+                    emoji: mood.emoji,
+                    label: mood.label,
+                  )
+                : current,
+          )
+          .toList(growable: false);
+      final updatedEntry = entry.copyWith(moods: updatedMoods);
+      await _box.put(updatedEntry.id, updatedEntry);
+    }
+  }
+
   ValueListenable<Box<DiaryEntry>> listenable() {
     return _box.listenable();
   }

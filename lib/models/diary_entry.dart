@@ -149,26 +149,68 @@ class DiaryEntry extends HiveObject {
     return {'title': title, 'body': body};
   }
 
-  DiaryEntry({
-    required this.id,
-    required this.date,
-    required Mood mood,
-    required this.content,
+  factory DiaryEntry({
+    required String id,
+    required DateTime date,
+    Mood? mood,
+    List<Mood>? moods,
+    required String content,
     DiaryEntryFormat? format,
     List<NotebookSpread>? notebookSpreads,
-    this.notebookAppearance,
+    NotebookAppearance? notebookAppearance,
     List<String>? tags,
-  })  : moodId = mood.id,
-        moodLabel = mood.label,
-        moodEmoji = mood.emoji,
-        isCustomMood = mood.isCustom,
-        format = format ?? DiaryEntryFormat.standard,
-        notebookSpreads = notebookSpreads ?? <NotebookSpread>[],
-        tags = tags != null ? List<String>.from(tags) : <String>[],
+  }) {
+    final resolvedMoods = _resolveMoods(
+      mood: mood,
+      moods: moods,
+    );
+    final primaryMood = resolvedMoods.first;
+    final resolvedFormat = format ?? DiaryEntryFormat.standard;
+    final resolvedSpreads = notebookSpreads != null
+        ? List<NotebookSpread>.from(notebookSpreads)
+        : <NotebookSpread>[];
+    final resolvedTags = tags != null ? List<String>.from(tags) : <String>[];
+
+    assert(
+      !(resolvedFormat == DiaryEntryFormat.notebook && resolvedSpreads.isEmpty),
+      'Notebook entries should include at least one spread.',
+    );
+
+    return DiaryEntry._internal(
+      id: id,
+      date: date,
+      primaryMood: primaryMood,
+      moods: resolvedMoods,
+      content: content,
+      entryFormat: resolvedFormat,
+      spreads: resolvedSpreads,
+      notebookAppearance: notebookAppearance,
+      entryTags: resolvedTags,
+    );
+  }
+
+  DiaryEntry._internal({
+    required this.id,
+    required this.date,
+    required Mood primaryMood,
+    required List<Mood> moods,
+    required this.content,
+    required DiaryEntryFormat entryFormat,
+    required List<NotebookSpread> spreads,
+    this.notebookAppearance,
+    required List<String> entryTags,
+  })  : moodId = primaryMood.id,
+        moodLabel = primaryMood.label,
+        moodEmoji = primaryMood.emoji,
+        isCustomMood = primaryMood.isCustom,
+        format = entryFormat,
+        notebookSpreads = List<NotebookSpread>.unmodifiable(spreads),
+        tags = List<String>.unmodifiable(entryTags),
+        moodSnapshotMaps =
+            List<Map<String, dynamic>>.unmodifiable(_serializeMoods(moods)),
+        _moods = List<Mood>.unmodifiable(moods),
         assert(
-          !((format ?? DiaryEntryFormat.standard) ==
-                  DiaryEntryFormat.notebook &&
-              (notebookSpreads ?? <NotebookSpread>[]).isEmpty),
+          !(entryFormat == DiaryEntryFormat.notebook && spreads.isEmpty),
           'Notebook entries should include at least one spread.',
         );
 
@@ -190,6 +232,9 @@ class DiaryEntry extends HiveObject {
   @HiveField(10)
   final bool isCustomMood;
 
+  @HiveField(11)
+  final List<Map<String, dynamic>> moodSnapshotMaps;
+
   @HiveField(3)
   final String content;
 
@@ -205,12 +250,13 @@ class DiaryEntry extends HiveObject {
   @HiveField(7)
   final List<String> tags;
 
-  Mood get mood => Mood(
-        id: moodId,
-        emoji: moodEmoji,
-        label: moodLabel,
-        isCustom: isCustomMood,
-      );
+  final List<Mood> _moods;
+
+  List<Mood> get moods => _moods;
+
+  Mood get mood => _moods.first;
+
+  bool get hasMultipleMoods => _moods.length > 1;
 
   bool get usesNotebook => format == DiaryEntryFormat.notebook;
 
@@ -233,6 +279,7 @@ class DiaryEntry extends HiveObject {
     String? id,
     DateTime? date,
     Mood? mood,
+    List<Mood>? moods,
     String? content,
     DiaryEntryFormat? format,
     List<NotebookSpread>? notebookSpreads,
@@ -240,19 +287,104 @@ class DiaryEntry extends HiveObject {
     bool clearNotebookAppearance = false,
     List<String>? tags,
   }) {
-    final nextMood = mood ?? this.mood;
+    final nextMoods =
+        moods ?? (mood != null ? <Mood>[mood] : List<Mood>.from(this.moods));
+    final nextNotebookAppearance = clearNotebookAppearance
+        ? null
+        : (notebookAppearance ?? this.notebookAppearance);
     return DiaryEntry(
       id: id ?? this.id,
       date: date ?? this.date,
-      mood: nextMood,
+      moods: nextMoods,
       content: content ?? this.content,
       format: format ?? this.format,
       notebookSpreads:
           notebookSpreads ?? List<NotebookSpread>.from(this.notebookSpreads),
-      notebookAppearance: clearNotebookAppearance
-          ? null
-          : (notebookAppearance ?? this.notebookAppearance),
+      notebookAppearance: nextNotebookAppearance,
       tags: tags ?? List<String>.from(this.tags),
     );
   }
+}
+
+List<Mood> _resolveMoods({
+  Mood? mood,
+  List<Mood>? moods,
+}) {
+  final buffer = <Mood>[];
+  final seen = <String>{};
+
+  void addMood(Mood value) {
+    if (seen.add(value.id)) {
+      buffer.add(value);
+    }
+  }
+
+  if (moods != null) {
+    for (final item in moods) {
+      addMood(item);
+    }
+  }
+  if (buffer.isEmpty && mood != null) {
+    addMood(mood);
+  }
+  if (buffer.isEmpty) {
+    addMood(Mood.happy);
+  }
+  return buffer;
+}
+
+List<Map<String, dynamic>> _serializeMoods(List<Mood> moods) {
+  return moods
+      .map(
+        (mood) => <String, dynamic>{
+          'id': mood.id,
+          'emoji': mood.emoji,
+          'label': mood.label,
+          'isCustom': mood.isCustom,
+        },
+      )
+      .toList(growable: false);
+}
+
+List<Mood> _deserializeMoods(List<dynamic>? raw, Mood primary) {
+  final seen = <String>{};
+  final result = <Mood>[];
+
+  void addMood(Mood value) {
+    if (seen.add(value.id)) {
+      result.add(value);
+    }
+  }
+
+  addMood(primary);
+
+  if (raw == null) {
+    return result;
+  }
+
+  for (final item in raw) {
+    if (item is Map) {
+      final id = item['id'] as String? ?? primary.id;
+      final fallback = Mood.byId(id) ?? primary;
+      final emoji = item['emoji'] as String? ?? fallback.emoji;
+      final label = item['label'] as String? ?? fallback.label;
+      final isCustom = item['isCustom'] is bool
+          ? item['isCustom'] as bool
+          : fallback.isCustom;
+      addMood(
+        Mood(
+          id: id,
+          emoji: emoji,
+          label: label,
+          isCustom: isCustom,
+        ),
+      );
+    }
+  }
+
+  if (result.isEmpty) {
+    addMood(primary);
+  }
+
+  return result;
 }

@@ -5,7 +5,9 @@ import '../models/mood.dart';
 
 /// Dialog that lets the user create a new custom mood.
 class AddMoodDialog extends StatefulWidget {
-  const AddMoodDialog({super.key});
+  const AddMoodDialog({this.initialMood, super.key});
+
+  final Mood? initialMood;
 
   @override
   State<AddMoodDialog> createState() => _AddMoodDialogState();
@@ -20,11 +22,23 @@ class _AddMoodDialogState extends State<AddMoodDialog> {
   bool _isSubmitting = false;
   String? _errorText;
 
+  bool get _isEditing => widget.initialMood != null;
+
   @override
   void dispose() {
     _emojiController.dispose();
     _labelController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final mood = widget.initialMood;
+    if (mood != null) {
+      _emojiController.text = mood.emoji;
+      _labelController.text = mood.label;
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -35,7 +49,8 @@ class _AddMoodDialogState extends State<AddMoodDialog> {
     final emoji = _emojiController.text.trim();
     final label = _labelController.text.trim();
 
-    if (_repository.labelExists(label)) {
+    final existingId = widget.initialMood?.id;
+    if (_repository.labelExists(label, excludeId: existingId)) {
       setState(() {
         _errorText =
             'You already have a mood with that name. Try something else!';
@@ -49,15 +64,22 @@ class _AddMoodDialogState extends State<AddMoodDialog> {
     });
 
     try {
-      final mood = await _repository.createCustomMood(
-        emoji: emoji,
-        label: label,
-      );
+      final mood = _isEditing
+          ? await _repository.updateCustomMood(
+              id: existingId!,
+              emoji: emoji,
+              label: label,
+            )
+          : await _repository.createCustomMood(
+              emoji: emoji,
+              label: label,
+            );
       if (!mounted) return;
       Navigator.of(context).pop<Mood>(mood);
     } catch (error) {
       setState(() {
-        _errorText = 'Could not save your mood. Please try again.';
+        _errorText =
+            'Could not ${_isEditing ? 'update' : 'save'} your mood. Please try again.';
       });
     } finally {
       if (mounted) {
@@ -72,9 +94,11 @@ class _AddMoodDialogState extends State<AddMoodDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final dialogTitle = _isEditing ? 'Edit mood' : 'Add a new mood';
+    final submitLabel = _isEditing ? 'Update' : 'Save';
 
     return AlertDialog(
-      title: const Text('Add a new mood'),
+      title: Text(dialogTitle),
       content: Form(
         key: _formKey,
         child: Column(
@@ -142,7 +166,7 @@ class _AddMoodDialogState extends State<AddMoodDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.check_rounded),
-          label: const Text('Save'),
+          label: Text(submitLabel),
         ),
       ],
     );

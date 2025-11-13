@@ -102,6 +102,75 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleDeleteMood(Mood mood) async {
+    if (!mood.isCustom) {
+      return;
+    }
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete mood'),
+          content: Text(
+            'Are you sure you want to delete "${mood.label}"? '
+            'Existing entries will keep their saved emoji and label.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    try {
+      await _moodRepository.deleteCustomMood(mood.id);
+      if (!mounted) return;
+      if (_selectedMood?.id == mood.id) {
+        setState(() => _selectedMood = null);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted "${mood.label}".')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not delete that mood. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleEditMood(Mood mood) async {
+    if (!mood.isCustom) {
+      return;
+    }
+    final updatedMood = await showDialog<Mood>(
+      context: context,
+      builder: (context) => AddMoodDialog(initialMood: mood),
+    );
+    if (!mounted || updatedMood == null) {
+      return;
+    }
+    if (_selectedMood?.id == updatedMood.id) {
+      setState(() => _selectedMood = updatedMood);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Updated "${updatedMood.label}".')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -155,13 +224,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context, _, __) {
                       final moods = _moodRepository.getAllMoods();
                       final selected = _selectedMood;
-                      final hasSelected = selected == null ||
-                          moods.any((mood) => mood.id == selected.id);
-                      if (!hasSelected) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!mounted) return;
-                          setState(() => _selectedMood = null);
-                        });
+                      final moodById = {
+                        for (final mood in moods) mood.id: mood
+                      };
+                      if (selected != null) {
+                        final replacement = moodById[selected.id];
+                        if (replacement == null) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() => _selectedMood = null);
+                          });
+                        } else if (!identical(replacement, selected)) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() => _selectedMood = replacement);
+                          });
+                        }
                       }
                       return MoodSelector(
                         moods: moods,
@@ -170,6 +248,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             setState(() => _selectedMood = mood),
                         allowClear: true,
                         onAddMood: _handleAddMood,
+                        onDeleteMood: _handleDeleteMood,
+                        onEditMood: _handleEditMood,
                       );
                     },
                   ),
@@ -237,8 +317,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context, _, __) {
                   final entries = _repository.getAllEntries();
                   final filteredEntries = entries.where((entry) {
-                    final matchesMood =
-                        _selectedMood == null || entry.mood == _selectedMood;
+                    final matchesMood = _selectedMood == null ||
+                        entry.moods.contains(_selectedMood);
                     final matchesQuery = _matchesSearchQuery(entry);
                     final matchesDate = _selectedDateRange == null ||
                         _isWithinRange(entry.date, _selectedDateRange!);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -5,6 +6,7 @@ import '../data/diary_repository.dart';
 import '../data/mood_repository.dart';
 import '../models/diary_entry.dart';
 import '../models/custom_mood.dart';
+import '../widgets/add_mood_dialog.dart';
 import '../widgets/collapsible_section.dart';
 import '../widgets/mood_selector.dart';
 import '../widgets/notebook_editor.dart';
@@ -32,7 +34,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   late NotebookAppearance _notebookAppearance;
   DiaryEntryFormat _format = DiaryEntryFormat.standard;
   List<NotebookSpread> _notebookSpreads = <NotebookSpread>[];
-  Mood? _selectedMood;
+  List<Mood> _selectedMoods = <Mood>[];
   bool _showNotebookExtras = true;
 
   bool get _isEditing => widget.entry != null;
@@ -54,7 +56,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       _titleController.text = initialContent.trim();
     }
     _selectedDate = entry?.date ?? DateTime.now();
-    _selectedMood = entry?.mood ?? Mood.happy;
+    _selectedMoods =
+        List<Mood>.from(entry?.moods ?? <Mood>[entry?.mood ?? Mood.happy]);
     if (_format == DiaryEntryFormat.notebook && entry != null) {
       _notebookSpreads = entry.notebookSpreads.isEmpty
           ? <NotebookSpread>[NotebookSpread()]
@@ -196,6 +199,84 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     return tags.join(', ');
   }
 
+  Future<void> _handleDeleteMood(Mood mood) async {
+    if (!mood.isCustom) {
+      return;
+    }
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete mood'),
+          content: Text(
+            'Are you sure you want to delete "${mood.label}"? '
+            'Existing entries will keep their saved emoji and label.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    try {
+      await _moodRepository.deleteCustomMood(mood.id);
+      if (!mounted) return;
+      if (_selectedMoods.any((selected) => selected.id == mood.id)) {
+        final replacementMoods = _moodRepository.getAllMoods();
+        setState(() {
+          _selectedMoods = _selectedMoods
+              .where((selected) => selected.id != mood.id)
+              .map((selected) => replacementMoods.firstWhere(
+                    (moodOption) => moodOption.id == selected.id,
+                    orElse: () => selected,
+                  ))
+              .toList(growable: false);
+          if (_selectedMoods.isEmpty && replacementMoods.isNotEmpty) {
+            _selectedMoods = <Mood>[replacementMoods.first];
+          }
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted "${mood.label}".')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not delete that mood. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleEditMood(Mood mood) async {
+    if (!mood.isCustom) {
+      return;
+    }
+    final updatedMood = await showDialog<Mood>(
+      context: context,
+      builder: (context) => AddMoodDialog(initialMood: mood),
+    );
+    if (!mounted || updatedMood == null) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Updated "${updatedMood.label}".')),
+    );
+  }
+
   Widget _buildEntryMetaSection(
     BuildContext context, {
     required bool isNotebook,
@@ -260,15 +341,35 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           valueListenable: _moodRepository.listenable(),
           builder: (context, _, __) {
             final moods = _moodRepository.getAllMoods();
-            final selectedMood = _selectedMood ?? moods.first;
+            final moodById = {for (final mood in moods) mood.id: mood};
+            var selection = _selectedMoods
+                .map((selected) => moodById[selected.id])
+                .whereType<Mood>()
+                .toList(growable: false);
+            if (selection.isEmpty && moods.isNotEmpty) {
+              selection = <Mood>[moods.first];
+            }
+            if (!listEquals(selection, _selectedMoods)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                setState(() {
+                  _selectedMoods = selection;
+                });
+              });
+            }
             return MoodSelector(
               moods: moods,
-              selectedMood: selectedMood,
-              onMoodSelected: (mood) {
+              selectedMoods: selection,
+              multiSelect: true,
+              onSelectedMoodsChanged: (updated) {
                 setState(() {
-                  _selectedMood = mood ?? moods.first;
+                  _selectedMoods = updated.isEmpty && moods.isNotEmpty
+                      ? <Mood>[moods.first]
+                      : updated;
                 });
               },
+              onDeleteMood: _handleDeleteMood,
+              onEditMood: _handleEditMood,
             );
           },
         ),
@@ -356,7 +457,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
   }
 
-  Mood get _resolvedMood => _selectedMood ?? Mood.happy;
+  List<Mood> get _resolvedMoods =>
+      _selectedMoods.isNotEmpty ? _selectedMoods : <Mood>[Mood.happy];
 
   String get _dateLabel =>
       '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
@@ -364,7 +466,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   String get _entryDetailsSummary {
     final titleText = _titleController.text.trim();
     final bodyText = _contentController.text.trim();
-    final mood = _resolvedMood;
+    final moods = _resolvedMoods;
+    final primaryMood = moods.first;
+    final moodSummary = moods.length > 1
+        ? '${primaryMood.emoji} ${primaryMood.label} +${moods.length - 1} more'
+        : '${primaryMood.emoji} ${primaryMood.label}';
     final bool usesNotebook = _format == DiaryEntryFormat.notebook;
 
     String titleLabel;
@@ -381,7 +487,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       titleLabel = usesNotebook ? 'Untitled notebook' : 'Diary entry';
     }
 
-    return '$titleLabel • $_dateLabel • ${mood.emoji} ${mood.label}';
+    return '$titleLabel • $_dateLabel • $moodSummary';
   }
 
   Widget _buildStandardLayout(BuildContext context) {
@@ -489,7 +595,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       return;
     }
 
-    final mood = _selectedMood ?? Mood.happy;
+    final moods = _resolvedMoods;
     var content = _composeEntryContent();
     List<NotebookSpread> spreads = const [];
     NotebookAppearance? appearance;
@@ -533,7 +639,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
     final entry = (_isEditing ? widget.entry! : null)?.copyWith(
           date: _selectedDate,
-          mood: mood,
+          moods: moods,
           content: content,
           format: _format,
           notebookSpreads: spreads,
@@ -544,7 +650,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         DiaryEntry(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           date: _selectedDate,
-          mood: mood,
+          moods: moods,
           content: content,
           format: _format,
           notebookSpreads: spreads,

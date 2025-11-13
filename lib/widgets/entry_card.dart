@@ -66,9 +66,13 @@ class EntryCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: accentColor,
-                    child: Text(
-                      entry.mood.emoji,
-                      style: const TextStyle(fontSize: 24),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        entry.mood.emoji,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 28, height: 1.1),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -110,6 +114,24 @@ class EntryCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium,
                         ),
+                        if (entry.hasMultipleMoods) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: entry.moods
+                                .map(
+                                  (mood) => Chip(
+                                    label: Text('${mood.emoji} ${mood.label}'),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
                         if (entry.tags.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Wrap(

@@ -11,7 +11,8 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
       for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     final formatIndex = (fields[4] as int?) ?? DiaryEntryFormat.standard.index;
-    final spreads = (fields[5] as List?)?.cast<NotebookSpread>() ?? const [];
+    final spreads =
+        (fields[5] as List?)?.cast<NotebookSpread>() ?? <NotebookSpread>[];
     final rawMood = fields[2];
 
     String moodId;
@@ -40,27 +41,32 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
       isCustomMood = false;
     }
 
-    return DiaryEntry(
+    final primaryMood = Mood(
+      id: moodId,
+      emoji: moodEmoji,
+      label: moodLabel,
+      isCustom: isCustomMood,
+    );
+    final rawMoodList = fields[11] as List?;
+    final moods = _deserializeMoods(rawMoodList, primaryMood);
+
+    return DiaryEntry._internal(
       id: fields[0] as String,
       date: fields[1] as DateTime,
-      mood: Mood(
-        id: moodId,
-        emoji: moodEmoji,
-        label: moodLabel,
-        isCustom: isCustomMood,
-      ),
+      primaryMood: primaryMood,
+      moods: moods,
       content: fields[3] as String,
-      format: DiaryEntryFormat.values[formatIndex],
-      notebookSpreads: spreads,
+      entryFormat: DiaryEntryFormat.values[formatIndex],
+      spreads: spreads,
       notebookAppearance: fields[6] as NotebookAppearance?,
-      tags: (fields[7] as List?)?.cast<String>(),
+      entryTags: (fields[7] as List?)?.cast<String>() ?? <String>[],
     );
   }
 
   @override
   void write(BinaryWriter writer, DiaryEntry obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -82,7 +88,9 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
       ..writeByte(9)
       ..write(obj.moodEmoji)
       ..writeByte(10)
-      ..write(obj.isCustomMood);
+      ..write(obj.isCustomMood)
+      ..writeByte(11)
+      ..write(obj.moodSnapshotMaps);
   }
 
   Mood _legacyMoodFromIndex(int index) {
