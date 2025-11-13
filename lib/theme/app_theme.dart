@@ -20,6 +20,24 @@ class AppTheme {
         return _buildNocturneTheme();
       case DiaryThemeOption.lark:
         return _buildLarkTheme();
+      case DiaryThemeOption.midnight:
+        return _buildMidnightTheme();
+      case DiaryThemeOption.nebula:
+        return _buildNebulaTheme();
+      case DiaryThemeOption.evergreen:
+        return _buildEvergreenTheme();
+      case DiaryThemeOption.carbonSlate:
+        return _buildCarbonSlateTheme();
+      case DiaryThemeOption.obsidian:
+        return _buildObsidianTheme();
+      case DiaryThemeOption.moonlightSparkle:
+        return _buildMoonlightSparkleTheme();
+      case DiaryThemeOption.bunnyHop:
+        return _buildBunnyHopTheme();
+      case DiaryThemeOption.kittenPaw:
+        return _buildKittenPawTheme();
+      case DiaryThemeOption.starlitFairy:
+        return _buildStarlitFairyTheme();
     }
   }
 
@@ -35,6 +53,24 @@ class AppTheme {
         return const Color(0xFF1F2737);
       case DiaryThemeOption.lark:
         return const Color(0xFFECB22E);
+      case DiaryThemeOption.midnight:
+        return const Color(0xFF0F172A);
+      case DiaryThemeOption.nebula:
+        return const Color(0xFFBC53F5);
+      case DiaryThemeOption.evergreen:
+        return const Color(0xFF1A4336);
+      case DiaryThemeOption.carbonSlate:
+        return const Color(0xFF2F3136);
+      case DiaryThemeOption.obsidian:
+        return const Color(0xFF090909);
+      case DiaryThemeOption.moonlightSparkle:
+        return const Color(0xFF3A3F94);
+      case DiaryThemeOption.bunnyHop:
+        return const Color(0xFFFFB7C5);
+      case DiaryThemeOption.kittenPaw:
+        return const Color(0xFFD9A066);
+      case DiaryThemeOption.starlitFairy:
+        return const Color(0xFF6A4AEF);
     }
   }
 
@@ -193,6 +229,382 @@ class AppTheme {
       filledButtonBackground: secondary,
       filledButtonForeground: Colors.white,
       dialogBackgroundColor: const Color(0xFF161F2B),
+    );
+  }
+
+  static ThemeData _buildMidnightTheme() {
+    const primary = Color(0xFF0F172A);
+    const secondary = Color(0xFF38BDF8);
+    const background = Color(0xFF020617);
+    const card = Color(0xFF111827);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.ibmPlexSansTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF16213A),
+      chipSelectedColor: const Color(0xFF1E2B48),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: secondary,
+      filledButtonBackground: secondary,
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF0B1222),
+    );
+  }
+
+  static ThemeData _buildNebulaTheme() {
+    const primary = Color(0xFF3B1D60);
+    const secondary = Color(0xFFBC53F5);
+    const background = Color(0xFF0B0416);
+    const card = Color(0xFF1D1030);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.spaceGroteskTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF291540),
+      chipSelectedColor: const Color(0xFF3C1E5F),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: secondary,
+      filledButtonBackground: secondary,
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF140826),
+    );
+  }
+
+  static ThemeData _buildEvergreenTheme() {
+    const primary = Color(0xFF1A4336);
+    const secondary = Color(0xFF34D399);
+    const background = Color(0xFF041B16);
+    const card = Color(0xFF0F2A23);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.muktaTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF16362C),
+      chipSelectedColor: const Color(0xFF1E4336),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: secondary,
+      filledButtonBackground: secondary,
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF0B251D),
+    );
+  }
+
+  static ThemeData _buildCarbonSlateTheme() {
+    const primary = Color(0xFF2F3136);
+    const secondary = Color(0xFF7C8A96);
+    const background = Color(0xFF0F1013);
+    const card = Color(0xFF18191D);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.jetBrainsMonoTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF1F2126),
+      chipSelectedColor: const Color(0xFF2A2D33),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: secondary,
+      filledButtonBackground: secondary.withValues(alpha: 0.85),
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF131417),
+    );
+  }
+
+  static ThemeData _buildObsidianTheme() {
+    const primary = Color(0xFF000000);
+    const secondary = Color(0xFF22D3EE);
+    const background = Color(0xFF000000);
+    const card = Color(0xFF111111);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF161616),
+      chipSelectedColor: const Color(0xFF1E1E1E),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: onSurface,
+      filledButtonBackground: onSurface,
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF0C0C0C),
+    );
+  }
+
+  static ThemeData _buildMoonlightSparkleTheme() {
+    const primary = Color(0xFF3A3F94);
+    const secondary = Color(0xFF8FD3FF);
+    const background = Color(0xFF0C1024);
+    const card = Color(0xFF151C33);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.manropeTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF1A2341),
+      chipSelectedColor: const Color(0xFF232F55),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: secondary,
+      filledButtonBackground: secondary,
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF111830),
+    );
+  }
+
+  static ThemeData _buildBunnyHopTheme() {
+    const primary = Color(0xFFFFB7C5);
+    const secondary = Color(0xFFA9E4C5);
+    const background = Color(0xFFFFF9F4);
+    const card = Color(0xFFFFE6F0);
+    const onSurface = Color(0xFF624049);
+
+    final base = ThemeData.light(useMaterial3: true);
+    final textTheme = GoogleFonts.baloo2TextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: onSurface,
+      onSecondary: onSurface,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: Colors.white.withValues(alpha: 0.94),
+      chipSelectedColor: const Color(0xFFE3F4E6),
+      fabBackground: primary,
+      fabForeground: onSurface,
+      focusedBorderColor: secondary,
+      textButtonColor: const Color(0xFF7FC7B9),
+      filledButtonBackground: primary,
+      filledButtonForeground: onSurface,
+      dialogBackgroundColor: Colors.white,
+    );
+  }
+
+  static ThemeData _buildKittenPawTheme() {
+    const primary = Color(0xFFD9A066);
+    const secondary = Color(0xFFF2CFC4);
+    const background = Color.fromARGB(255, 231, 112, 112);
+    const card = Color(0xFFFFE2D1);
+    const onSurface = Color(0xFF4A3426);
+
+    final base = ThemeData.light(useMaterial3: true);
+    final textTheme = GoogleFonts.cabinTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: onSurface,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: Colors.white.withValues(alpha: 0.92),
+      chipSelectedColor: const Color(0xFFF8DCCC),
+      fabBackground: primary,
+      fabForeground: Colors.white,
+      focusedBorderColor: primary,
+      textButtonColor: primary,
+      filledButtonBackground: primary,
+      filledButtonForeground: Colors.white,
+      dialogBackgroundColor: Colors.white,
+    );
+  }
+
+  static ThemeData _buildStarlitFairyTheme() {
+    const primary = Color(0xFF6A4AEF);
+    const secondary = Color(0xFFF6A6FF);
+    const background = Color(0xFF120930);
+    const card = Color(0xFF1F1446);
+    const onSurface = Colors.white;
+
+    final base = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.jostTextTheme(base.textTheme).apply(
+      bodyColor: onSurface,
+      displayColor: onSurface,
+    );
+
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+      primary: primary,
+      secondary: secondary,
+      surface: background,
+      onPrimary: Colors.white,
+      onSecondary: Colors.black,
+      onSurface: onSurface,
+    );
+
+    return _applyCommonStyles(
+      base: base,
+      textTheme: textTheme,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: background,
+      cardColor: card,
+      chipBackgroundColor: const Color(0xFF241850),
+      chipSelectedColor: const Color(0xFF2E2065),
+      fabBackground: secondary,
+      fabForeground: Colors.black,
+      focusedBorderColor: secondary,
+      textButtonColor: secondary,
+      filledButtonBackground: secondary,
+      filledButtonForeground: Colors.black,
+      dialogBackgroundColor: const Color(0xFF170F3D),
     );
   }
 
