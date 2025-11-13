@@ -11,7 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
 import 'package:pastel_diary/data/diary_repository.dart';
+import 'package:pastel_diary/data/mood_repository.dart';
 import 'package:pastel_diary/main.dart';
+import 'package:pastel_diary/models/custom_mood.dart';
 import 'package:pastel_diary/models/diary_entry.dart';
 import 'package:pastel_diary/theme/theme_controller.dart';
 
@@ -23,11 +25,16 @@ void main() {
   setUpAll(() async {
     tempDir = await Directory.systemTemp.createTemp('pastel_diary_test');
     Hive.init(tempDir.path);
-    final adapter = DiaryEntryAdapter();
-    if (!Hive.isAdapterRegistered(adapter.typeId)) {
-      Hive.registerAdapter(adapter);
+    final diaryAdapter = DiaryEntryAdapter();
+    if (!Hive.isAdapterRegistered(diaryAdapter.typeId)) {
+      Hive.registerAdapter(diaryAdapter);
+    }
+    final customMoodAdapter = CustomMoodAdapter();
+    if (!Hive.isAdapterRegistered(customMoodAdapter.typeId)) {
+      Hive.registerAdapter(customMoodAdapter);
     }
     await Hive.openBox<DiaryEntry>(DiaryRepository.boxName);
+    await Hive.openBox<CustomMood>(MoodRepository.boxName);
     await Hive.openBox('settings_box');
   });
 
@@ -37,7 +44,8 @@ void main() {
     await tempDir.delete(recursive: true);
   });
 
-  testWidgets('Home screen shows empty state when no entries', (WidgetTester tester) async {
+  testWidgets('Home screen shows empty state when no entries',
+      (WidgetTester tester) async {
     final themeController = await ThemeController.load();
 
     await tester.pumpWidget(PastelDiaryApp(themeController: themeController));

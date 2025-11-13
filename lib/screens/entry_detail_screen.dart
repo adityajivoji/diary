@@ -16,6 +16,46 @@ class EntryDetailScreen extends StatelessWidget {
   final DiaryEntry entry;
   final DateFormat _dateFormat;
 
+  String _resolveEntryTitle(DiaryEntry entry) {
+    String firstNonEmptyLine(String text) {
+      for (final line in text.split('\n')) {
+        final trimmed = line.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+      return '';
+    }
+
+    final trimmedDiaryTitle = entry.diaryTitle.trim();
+
+    if (!entry.usesNotebook) {
+      if (trimmedDiaryTitle.isNotEmpty) {
+        return trimmedDiaryTitle;
+      }
+      final bodyLine = firstNonEmptyLine(entry.diaryBody);
+      if (bodyLine.isNotEmpty) {
+        return bodyLine;
+      }
+      return 'Diary entry';
+    }
+
+    if (trimmedDiaryTitle.isNotEmpty) {
+      return trimmedDiaryTitle;
+    }
+    final notebookLine = firstNonEmptyLine(entry.content);
+    if (notebookLine.isNotEmpty) {
+      return notebookLine;
+    }
+    if (entry.notebookSpreads.isNotEmpty) {
+      final spreadLine = firstNonEmptyLine(entry.notebookSpreads.first.text);
+      if (spreadLine.isNotEmpty) {
+        return spreadLine;
+      }
+    }
+    return 'Notebook entry';
+  }
+
   @override
   Widget build(BuildContext context) {
     final repository = DiaryRepository.instance;
@@ -45,6 +85,7 @@ class EntryDetailScreen extends StatelessWidget {
         final moodSummary = currentMoods.length > 1
             ? '${primaryMood.label} (+${currentMoods.length - 1} more)'
             : primaryMood.label;
+        final entryTitle = _resolveEntryTitle(currentEntry);
 
         return Scaffold(
           appBar: AppBar(
@@ -53,7 +94,11 @@ class EntryDetailScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Your memory'),
+                Text(
+                  entryTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -163,20 +208,15 @@ class EntryDetailScreen extends StatelessWidget {
                               appearance: currentEntry.notebookAppearance,
                             )
                           : (() {
-                              final title = currentEntry.diaryTitle;
-                              final body = currentEntry.diaryBody;
-                              final text = title.isNotEmpty && body.isNotEmpty
-                                  ? '$title\n\n$body'
-                                  : title.isNotEmpty
-                                      ? title
-                                      : body;
-                              return Text(
-                                text,
-                                key: const ValueKey('text-entry'),
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  height: 1.5,
-                                ),
-                              );
+                              final body = currentEntry.diaryBody.trim();
+                              return body.isNotEmpty
+                                  ? Text(
+                                      body,
+                                      key: const ValueKey('text-entry'),
+                                      style: theme.textTheme.bodyLarge
+                                          ?.copyWith(height: 1.5),
+                                    )
+                                  : const SizedBox(key: ValueKey('text-entry'));
                             })(),
                     ),
                   ),
