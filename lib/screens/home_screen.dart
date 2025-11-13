@@ -15,6 +15,11 @@ import '../widgets/add_mood_dialog.dart';
 import 'add_entry_screen.dart';
 import 'entry_detail_screen.dart';
 
+enum MoodFilterMode {
+  any,
+  all,
+}
+
 /// Home screen that displays existing entries and quick filters.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final DateFormat _dateFilterFormat = DateFormat.yMMMMd();
 
-  Mood? _selectedMood;
+  List<Mood> _selectedMoods = const <Mood>[];
+  MoodFilterMode _moodFilterMode = MoodFilterMode.any;
   String _searchQuery = '';
   DateTimeRange? _selectedDateRange;
   bool _sortDescending = true;
@@ -98,7 +104,13 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => const AddMoodDialog(),
     );
     if (newMood != null && mounted) {
-      setState(() => _selectedMood = newMood);
+      if (_selectedMoods.any((mood) => mood.id == newMood.id)) {
+        return;
+      }
+      setState(() {
+        final updated = List<Mood>.from(_selectedMoods)..add(newMood);
+        _selectedMoods = List.unmodifiable(updated);
+      });
     }
   }
 
@@ -136,8 +148,15 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _moodRepository.deleteCustomMood(mood.id);
       if (!mounted) return;
-      if (_selectedMood?.id == mood.id) {
-        setState(() => _selectedMood = null);
+      if (_selectedMoods.any((selected) => selected.id == mood.id)) {
+        setState(() {
+          _selectedMoods = List.unmodifiable(
+            _selectedMoods.where((selected) => selected.id != mood.id),
+          );
+          if (_selectedMoods.isEmpty) {
+            _moodFilterMode = MoodFilterMode.any;
+          }
+        });
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Deleted "${mood.label}".')),
@@ -163,8 +182,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted || updatedMood == null) {
       return;
     }
-    if (_selectedMood?.id == updatedMood.id) {
-      setState(() => _selectedMood = updatedMood);
+    if (_selectedMoods.any((selected) => selected.id == updatedMood.id)) {
+      setState(() {
+        _selectedMoods = List.unmodifiable(
+          _selectedMoods
+              .map(
+                (selected) =>
+                    selected.id == updatedMood.id ? updatedMood : selected,
+              )
+              .toList(),
+        );
+      });
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Updated "${updatedMood.label}".')),
@@ -223,33 +251,62 @@ class _HomeScreenState extends State<HomeScreen> {
                     valueListenable: _moodRepository.listenable(),
                     builder: (context, _, __) {
                       final moods = _moodRepository.getAllMoods();
-                      final selected = _selectedMood;
+                      final selected = _selectedMoods;
                       final moodById = {
                         for (final mood in moods) mood.id: mood
                       };
-                      if (selected != null) {
-                        final replacement = moodById[selected.id];
-                        if (replacement == null) {
+                      if (selected.isNotEmpty) {
+                        final updatedSelection = <Mood>[];
+                        var selectionChanged = false;
+                        for (final mood in selected) {
+                          final replacement = moodById[mood.id];
+                          if (replacement == null) {
+                            selectionChanged = true;
+                            continue;
+                          }
+                          if (!identical(replacement, mood)) {
+                            selectionChanged = true;
+                          }
+                          updatedSelection.add(replacement);
+                        }
+                        if (selectionChanged) {
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             if (!mounted) return;
-                            setState(() => _selectedMood = null);
-                          });
-                        } else if (!identical(replacement, selected)) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            setState(() => _selectedMood = replacement);
+                            setState(() {
+                              _selectedMoods =
+                                  List.unmodifiable(updatedSelection);
+                              if (_selectedMoods.isEmpty) {
+                                _moodFilterMode = MoodFilterMode.any;
+                              }
+                            });
                           });
                         }
                       }
-                      return MoodSelector(
-                        moods: moods,
-                        selectedMood: _selectedMood,
-                        onMoodSelected: (mood) =>
-                            setState(() => _selectedMood = mood),
-                        allowClear: true,
-                        onAddMood: _handleAddMood,
-                        onDeleteMood: _handleDeleteMood,
-                        onEditMood: _handleEditMood,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          MoodSelector(
+                            moods: moods,
+                            selectedMoods: _selectedMoods,
+                            multiSelect: true,
+                            allowClear: true,
+                            onSelectedMoodsChanged: (moods) {
+                              setState(() {
+                                _selectedMoods = List.unmodifiable(moods);
+                                if (_selectedMoods.isEmpty) {
+                                  _moodFilterMode = MoodFilterMode.any;
+                                }
+                              });
+                            },
+                            onAddMood: _handleAddMood,
+                            onDeleteMood: _handleDeleteMood,
+                            onEditMood: _handleEditMood,
+                          ),
+                          if (_selectedMoods.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            _buildMoodFilterModeToggle(theme, labelColor),
+                          ],
+                        ],
                       );
                     },
                   ),
@@ -317,8 +374,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context, _, __) {
                   final entries = _repository.getAllEntries();
                   final filteredEntries = entries.where((entry) {
-                    final matchesMood = _selectedMood == null ||
-                        entry.moods.contains(_selectedMood);
+                    final matchesMood = _selectedMoods.isEmpty ||
+                        (_moodFilterMode == MoodFilterMode.all
+                            ? _selectedMoods
+                                .every((mood) => entry.moods.contains(mood))
+                            : _selectedMoods
+                                .any((mood) => entry.moods.contains(mood)));
                     final matchesQuery = _matchesSearchQuery(entry);
                     final matchesDate = _selectedDateRange == null ||
                         _isWithinRange(entry.date, _selectedDateRange!);
@@ -355,6 +416,47 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMoodFilterModeToggle(ThemeData theme, Color labelColor) {
+    final description = _moodFilterMode == MoodFilterMode.all
+        ? 'Show entries that match all selected moods'
+        : 'Show entries that match any selected mood';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          description,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: labelColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ToggleButtons(
+          borderRadius: BorderRadius.circular(20),
+          isSelected: [
+            _moodFilterMode == MoodFilterMode.any,
+            _moodFilterMode == MoodFilterMode.all,
+          ],
+          onPressed: (index) {
+            setState(() {
+              _moodFilterMode =
+                  index == 0 ? MoodFilterMode.any : MoodFilterMode.all;
+            });
+          },
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('OR'),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('AND'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
