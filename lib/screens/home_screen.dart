@@ -273,8 +273,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Tap the cupcake to tell your story for today. '
-                'Add how you feel, then come back later to read your memories.',
+                'Tap the Cake on your HAPPPYYYY BIRTHDAAAYYY SHARU to begin...'
+                'A small gift from Adi to Sharu',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: onSurface.withValues(alpha: 0.78),
@@ -286,8 +286,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: onSurface,
                 ),
-                icon: const Text('🧁', style: TextStyle(fontSize: 20)),
-                label: const Text('Add your first entry'),
+                icon: const Text('🎂', style: TextStyle(fontSize: 20)),
+                label: const Text('Happy Birthday Sweetie'),
               ),
             ],
           ),
