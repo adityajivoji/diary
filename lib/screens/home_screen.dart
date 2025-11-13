@@ -341,10 +341,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_selectedDateRange != null)
                         Padding(
                           padding: const EdgeInsets.only(left: 8),
-                          child: IconButton(
-                            tooltip: 'Clear date filter',
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: _clearDateRange,
+                          child: Semantics(
+                            label: 'Clear date filter',
+                            button: true,
+                            child: IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: _clearDateRange,
+                            ),
                           ),
                         )
                       else
@@ -423,6 +426,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final description = _moodFilterMode == MoodFilterMode.all
         ? 'Show entries that match all selected moods'
         : 'Show entries that match any selected mood';
+    final colorScheme = theme.colorScheme;
+    final toggleFillColor = colorScheme.primary.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.38 : 0.18,
+    );
+    final toggleBorderColor = labelColor.withValues(alpha: 0.4);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -435,6 +443,14 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 8),
         ToggleButtons(
           borderRadius: BorderRadius.circular(20),
+          borderColor: toggleBorderColor,
+          selectedBorderColor: colorScheme.primary,
+          fillColor: toggleFillColor,
+          color: labelColor,
+          selectedColor: colorScheme.onPrimary,
+          textStyle: theme.textTheme.labelLarge,
+          splashColor: colorScheme.primary.withValues(alpha: 0.24),
+          hoverColor: colorScheme.primary.withValues(alpha: 0.12),
           isSelected: [
             _moodFilterMode == MoodFilterMode.any,
             _moodFilterMode == MoodFilterMode.all,

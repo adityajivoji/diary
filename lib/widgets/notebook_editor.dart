@@ -2127,36 +2127,42 @@ class _NotebookEditorState extends State<NotebookEditor> {
     required Color outlineColor,
   }) {
     return [
-      IconButton.filledTonal(
-        onPressed: _currentPage > 0
-            ? () {
-                _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            : null,
-        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        tooltip: 'Previous page',
-        style: IconButton.styleFrom(
-          foregroundColor: onSurface,
-          disabledForegroundColor: disabledColor,
+      Semantics(
+        label: 'Previous page',
+        button: true,
+        child: IconButton.filledTonal(
+          onPressed: _currentPage > 0
+              ? () {
+                  _pageController.previousPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              : null,
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          style: IconButton.styleFrom(
+            foregroundColor: onSurface,
+            disabledForegroundColor: disabledColor,
+          ),
         ),
       ),
-      IconButton.filledTonal(
-        onPressed: _currentPage < _spreads.length - 1
-            ? () {
-                _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            : null,
-        icon: const Icon(Icons.arrow_forward_ios_rounded),
-        tooltip: 'Next page',
-        style: IconButton.styleFrom(
-          foregroundColor: onSurface,
-          disabledForegroundColor: disabledColor,
+      Semantics(
+        label: 'Next page',
+        button: true,
+        child: IconButton.filledTonal(
+          onPressed: _currentPage < _spreads.length - 1
+              ? () {
+                  _pageController.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              : null,
+          icon: const Icon(Icons.arrow_forward_ios_rounded),
+          style: IconButton.styleFrom(
+            foregroundColor: onSurface,
+            disabledForegroundColor: disabledColor,
+          ),
         ),
       ),
       ElevatedButton.icon(
@@ -2168,12 +2174,15 @@ class _NotebookEditorState extends State<NotebookEditor> {
           backgroundColor: theme.colorScheme.secondary,
         ),
       ),
-      IconButton(
-        onPressed: () => _deletePage(_currentPage),
-        tooltip: 'Delete page',
-        icon: Icon(
-          Icons.delete_rounded,
-          color: theme.colorScheme.error,
+      Semantics(
+        label: 'Delete page',
+        button: true,
+        child: IconButton(
+          onPressed: () => _deletePage(_currentPage),
+          icon: Icon(
+            Icons.delete_rounded,
+            color: theme.colorScheme.error,
+          ),
         ),
       ),
       OutlinedButton.icon(

@@ -1060,33 +1060,39 @@ class _NotebookViewerState extends State<NotebookViewer> {
     required Color outlineColor,
   }) {
     return [
-      IconButton(
-        tooltip: 'Previous page',
-        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        color: onSurface,
-        disabledColor: disabledColor,
-        onPressed: _currentPage > 0
-            ? () {
-                _controller.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            : null,
+      Semantics(
+        label: 'Previous page',
+        button: true,
+        child: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          color: onSurface,
+          disabledColor: disabledColor,
+          onPressed: _currentPage > 0
+              ? () {
+                  _controller.previousPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              : null,
+        ),
       ),
-      IconButton(
-        tooltip: 'Next page',
-        icon: const Icon(Icons.arrow_forward_ios_rounded),
-        color: onSurface,
-        disabledColor: disabledColor,
-        onPressed: _currentPage < totalPages - 1
-            ? () {
-                _controller.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            : null,
+      Semantics(
+        label: 'Next page',
+        button: true,
+        child: IconButton(
+          icon: const Icon(Icons.arrow_forward_ios_rounded),
+          color: onSurface,
+          disabledColor: disabledColor,
+          onPressed: _currentPage < totalPages - 1
+              ? () {
+                  _controller.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                }
+              : null,
+        ),
       ),
       const SizedBox(width: 12),
       OutlinedButton.icon(

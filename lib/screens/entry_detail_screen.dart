@@ -123,48 +123,54 @@ class EntryDetailScreen extends StatelessWidget {
             ),
             actions: [
               const ThemeSelectorAction(),
-              IconButton(
-                tooltip: 'Edit',
-                icon: const Icon(Icons.edit_rounded),
-                onPressed: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => AddEntryScreen(entry: currentEntry),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                tooltip: 'Delete',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () async {
-                  final shouldDelete = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Delete entry?'),
-                      content: const Text(
-                        'This memory will be removed from your diary. This action cannot be undone.',
+              Semantics(
+                label: 'Edit entry',
+                button: true,
+                child: IconButton(
+                  icon: const Icon(Icons.edit_rounded),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => AddEntryScreen(entry: currentEntry),
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
+                    );
+                  },
+                ),
+              ),
+              Semantics(
+                label: 'Delete entry',
+                button: true,
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () async {
+                    final shouldDelete = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete entry?'),
+                        content: const Text(
+                          'This memory will be removed from your diary. This action cannot be undone.',
                         ),
-                        FilledButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ),
-                  );
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
 
-                  if (shouldDelete == true) {
-                    await repository.deleteEntry(currentEntry.id);
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
+                    if (shouldDelete == true) {
+                      await repository.deleteEntry(currentEntry.id);
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                      }
                     }
-                  }
-                },
+                  },
+                ),
               ),
             ],
           ),

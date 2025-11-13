@@ -75,6 +75,8 @@ class MoodSelector extends StatelessWidget {
         chipTheme.selectedColor ?? theme.colorScheme.secondaryContainer;
     final checkmarkColor = chipTheme.secondaryLabelStyle?.color ??
         theme.colorScheme.onSecondaryContainer;
+    final iconColor =
+        chipTheme.labelStyle?.color ?? theme.colorScheme.onSurface;
 
     return Wrap(
       spacing: 8,
@@ -93,7 +95,7 @@ class MoodSelector extends StatelessWidget {
             message: 'Feeling something else?',
             child: ActionChip(
               label: const Text('Add mood'),
-              avatar: const Icon(Icons.add, size: 18),
+              avatar: Icon(Icons.add, size: 18, color: iconColor),
               onPressed: onAddMood,
               backgroundColor: chipTheme.backgroundColor ??
                   Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -102,7 +104,7 @@ class MoodSelector extends StatelessWidget {
         if (!multiSelect && allowClear && selectedMood != null)
           ActionChip(
             label: const Text('Clear'),
-            avatar: const Icon(Icons.refresh, size: 18),
+            avatar: Icon(Icons.refresh, size: 18, color: iconColor),
             onPressed: () => onMoodSelected?.call(null),
             backgroundColor: chipTheme.backgroundColor ??
                 Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -110,7 +112,7 @@ class MoodSelector extends StatelessWidget {
         if (multiSelect && allowClear && selectedMoods.isNotEmpty)
           ActionChip(
             label: const Text('Clear'),
-            avatar: const Icon(Icons.refresh, size: 18),
+            avatar: Icon(Icons.refresh, size: 18, color: iconColor),
             onPressed: () => onSelectedMoodsChanged?.call(const <Mood>[]),
             backgroundColor: chipTheme.backgroundColor ??
                 Theme.of(context).colorScheme.surfaceContainerHighest,

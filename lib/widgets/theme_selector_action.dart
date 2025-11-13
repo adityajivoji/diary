@@ -21,10 +21,13 @@ class ThemeSelectorAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Choose theme',
-      icon: const Icon(Icons.palette_rounded),
-      onPressed: () => _openThemeSelector(context),
+    return Semantics(
+      label: 'Choose theme',
+      button: true,
+      child: IconButton(
+        icon: const Icon(Icons.palette_rounded),
+        onPressed: () => _openThemeSelector(context),
+      ),
     );
   }
 }

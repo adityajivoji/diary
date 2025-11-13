@@ -709,10 +709,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         title: Text(_isEditing ? 'Update Diary' : 'New Diary'),
         actions: [
           const ThemeSelectorAction(),
-          IconButton(
-            onPressed: _saveEntry,
-            icon: const Icon(Icons.check_rounded),
-            tooltip: 'Save entry',
+          Semantics(
+            label: 'Save entry',
+            button: true,
+            child: IconButton(
+              onPressed: _saveEntry,
+              icon: const Icon(Icons.check_rounded),
+            ),
           ),
         ],
       ),
