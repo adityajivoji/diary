@@ -12,10 +12,43 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
     };
     final formatIndex = (fields[4] as int?) ?? DiaryEntryFormat.standard.index;
     final spreads = (fields[5] as List?)?.cast<NotebookSpread>() ?? const [];
+    final rawMood = fields[2];
+
+    String moodId;
+    String moodLabel;
+    String moodEmoji;
+    bool isCustomMood;
+
+    if (rawMood is String) {
+      moodId = rawMood;
+      final fallback = Mood.byId(moodId);
+      moodLabel =
+          (fields[8] as String?) ?? fallback?.label ?? _fallbackLabel(moodId);
+      moodEmoji = (fields[9] as String?) ?? fallback?.emoji ?? _fallbackEmoji();
+      isCustomMood = (fields[10] as bool?) ?? fallback == null;
+    } else if (rawMood is int) {
+      final legacyMood = _legacyMoodFromIndex(rawMood);
+      moodId = legacyMood.id;
+      moodLabel = legacyMood.label;
+      moodEmoji = legacyMood.emoji;
+      isCustomMood = false;
+    } else {
+      final fallback = Mood.defaults.first;
+      moodId = fallback.id;
+      moodLabel = fallback.label;
+      moodEmoji = fallback.emoji;
+      isCustomMood = false;
+    }
+
     return DiaryEntry(
       id: fields[0] as String,
       date: fields[1] as DateTime,
-      mood: Mood.values[fields[2] as int],
+      mood: Mood(
+        id: moodId,
+        emoji: moodEmoji,
+        label: moodLabel,
+        isCustom: isCustomMood,
+      ),
       content: fields[3] as String,
       format: DiaryEntryFormat.values[formatIndex],
       notebookSpreads: spreads,
@@ -27,13 +60,13 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
   @override
   void write(BinaryWriter writer, DiaryEntry obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.date)
       ..writeByte(2)
-      ..write(obj.mood.index)
+      ..write(obj.moodId)
       ..writeByte(3)
       ..write(obj.content)
       ..writeByte(4)
@@ -43,7 +76,32 @@ class DiaryEntryAdapter extends TypeAdapter<DiaryEntry> {
       ..writeByte(6)
       ..write(obj.notebookAppearance)
       ..writeByte(7)
-      ..write(obj.tags);
+      ..write(obj.tags)
+      ..writeByte(8)
+      ..write(obj.moodLabel)
+      ..writeByte(9)
+      ..write(obj.moodEmoji)
+      ..writeByte(10)
+      ..write(obj.isCustomMood);
+  }
+
+  Mood _legacyMoodFromIndex(int index) {
+    if (index < 0 || index >= Mood.defaults.length) {
+      return Mood.defaults.first;
+    }
+    return Mood.defaults[index];
+  }
+
+  String _fallbackLabel(String moodId) {
+    if (moodId.startsWith('custom-')) {
+      return 'Custom mood';
+    }
+    final fallback = Mood.byId(moodId);
+    return fallback?.label ?? Mood.defaults.first.label;
+  }
+
+  String _fallbackEmoji() {
+    return Mood.defaults.first.emoji;
   }
 }
 
@@ -125,8 +183,7 @@ class NotebookAppearanceAdapter extends TypeAdapter<NotebookAppearance> {
       coverColorValue: fields[2] as int? ?? 0xFF000000,
       fontFamily: fields[3] as String? ?? 'Roboto',
       coverImagePath: fields[4] as String?,
-      attachmentBackgroundColorValue:
-          fields[5] as int? ?? 0xFFF3F4FF,
+      attachmentBackgroundColorValue: fields[5] as int? ?? 0xFFF3F4FF,
       attachmentIconColorValue: fields[6] as int? ?? 0xFF4F46E5,
     );
   }

@@ -5,10 +5,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../data/diary_repository.dart';
+import '../data/mood_repository.dart';
 import '../models/diary_entry.dart';
+import '../models/custom_mood.dart';
 import '../widgets/entry_card.dart';
 import '../widgets/mood_selector.dart';
 import '../widgets/theme_selector_action.dart';
+import '../widgets/add_mood_dialog.dart';
 import 'add_entry_screen.dart';
 import 'entry_detail_screen.dart';
 
@@ -22,6 +25,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final DiaryRepository _repository = DiaryRepository.instance;
+  final MoodRepository _moodRepository = MoodRepository.instance;
   final TextEditingController _searchController = TextEditingController();
   final DateFormat _dateFilterFormat = DateFormat.yMMMMd();
 
@@ -88,6 +92,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _handleAddMood() async {
+    final newMood = await showDialog<Mood>(
+      context: context,
+      builder: (context) => const AddMoodDialog(),
+    );
+    if (newMood != null && mounted) {
+      setState(() => _selectedMood = newMood);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -136,11 +150,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  MoodSelector(
-                    selectedMood: _selectedMood,
-                    onMoodSelected: (mood) =>
-                        setState(() => _selectedMood = mood),
-                    allowClear: true,
+                  ValueListenableBuilder<Box<CustomMood>>(
+                    valueListenable: _moodRepository.listenable(),
+                    builder: (context, _, __) {
+                      final moods = _moodRepository.getAllMoods();
+                      final selected = _selectedMood;
+                      final hasSelected = selected == null ||
+                          moods.any((mood) => mood.id == selected.id);
+                      if (!hasSelected) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          setState(() => _selectedMood = null);
+                        });
+                      }
+                      return MoodSelector(
+                        moods: moods,
+                        selectedMood: _selectedMood,
+                        onMoodSelected: (mood) =>
+                            setState(() => _selectedMood = mood),
+                        allowClear: true,
+                        onAddMood: _handleAddMood,
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -360,8 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     for (final token in tokens) {
-      final matchesToken =
-          parts.any((part) => _tokenMatchesPart(token, part));
+      final matchesToken = parts.any((part) => _tokenMatchesPart(token, part));
       if (!matchesToken) {
         return false;
       }

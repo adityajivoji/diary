@@ -1,21 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
+import 'mood.dart';
+
+export 'mood.dart';
+
 part 'diary_entry.g.dart';
-
-/// Emoji moods available for entries.
-enum Mood {
-  happy('😊', 'Joyful'),
-  sad('😢', 'Blue'),
-  angry('😡', 'Frustrated'),
-  love('❤️', 'Loved'),
-  calm('😌', 'Calm'),
-  sparkling('✨', 'Inspired');
-
-  const Mood(this.emoji, this.label);
-  final String emoji;
-  final String label;
-}
 
 /// The type of entry the user chose when composing.
 enum DiaryEntryFormat {
@@ -122,8 +112,8 @@ class NotebookAppearance {
       coverColorValue: coverColorValue ?? this.coverColorValue,
       fontFamily: fontFamily ?? this.fontFamily,
       coverImagePath: coverImagePath ?? this.coverImagePath,
-      attachmentBackgroundColorValue: attachmentBackgroundColorValue ??
-          this.attachmentBackgroundColorValue,
+      attachmentBackgroundColorValue:
+          attachmentBackgroundColorValue ?? this.attachmentBackgroundColorValue,
       attachmentIconColorValue:
           attachmentIconColorValue ?? this.attachmentIconColorValue,
     );
@@ -150,32 +140,34 @@ class DiaryEntry extends HiveObject {
     if (!content.startsWith(titleStartToken)) {
       return {'title': '', 'body': content};
     }
-    final endIndex =
-        content.indexOf(titleEndToken, titleStartToken.length);
+    final endIndex = content.indexOf(titleEndToken, titleStartToken.length);
     if (endIndex == -1) {
       return {'title': '', 'body': content};
     }
-    final title =
-        content.substring(titleStartToken.length, endIndex).trim();
-    final body =
-        content.substring(endIndex + titleEndToken.length).trimLeft();
+    final title = content.substring(titleStartToken.length, endIndex).trim();
+    final body = content.substring(endIndex + titleEndToken.length).trimLeft();
     return {'title': title, 'body': body};
   }
 
   DiaryEntry({
     required this.id,
     required this.date,
-    required this.mood,
+    required Mood mood,
     required this.content,
     DiaryEntryFormat? format,
     List<NotebookSpread>? notebookSpreads,
     this.notebookAppearance,
     List<String>? tags,
-  })  : format = format ?? DiaryEntryFormat.standard,
+  })  : moodId = mood.id,
+        moodLabel = mood.label,
+        moodEmoji = mood.emoji,
+        isCustomMood = mood.isCustom,
+        format = format ?? DiaryEntryFormat.standard,
         notebookSpreads = notebookSpreads ?? <NotebookSpread>[],
         tags = tags != null ? List<String>.from(tags) : <String>[],
         assert(
-          !((format ?? DiaryEntryFormat.standard) == DiaryEntryFormat.notebook &&
+          !((format ?? DiaryEntryFormat.standard) ==
+                  DiaryEntryFormat.notebook &&
               (notebookSpreads ?? <NotebookSpread>[]).isEmpty),
           'Notebook entries should include at least one spread.',
         );
@@ -187,7 +179,16 @@ class DiaryEntry extends HiveObject {
   final DateTime date;
 
   @HiveField(2)
-  final Mood mood;
+  final String moodId;
+
+  @HiveField(8)
+  final String moodLabel;
+
+  @HiveField(9)
+  final String moodEmoji;
+
+  @HiveField(10)
+  final bool isCustomMood;
 
   @HiveField(3)
   final String content;
@@ -203,6 +204,13 @@ class DiaryEntry extends HiveObject {
 
   @HiveField(7)
   final List<String> tags;
+
+  Mood get mood => Mood(
+        id: moodId,
+        emoji: moodEmoji,
+        label: moodLabel,
+        isCustom: isCustomMood,
+      );
 
   bool get usesNotebook => format == DiaryEntryFormat.notebook;
 
@@ -232,10 +240,11 @@ class DiaryEntry extends HiveObject {
     bool clearNotebookAppearance = false,
     List<String>? tags,
   }) {
+    final nextMood = mood ?? this.mood;
     return DiaryEntry(
       id: id ?? this.id,
       date: date ?? this.date,
-      mood: mood ?? this.mood,
+      mood: nextMood,
       content: content ?? this.content,
       format: format ?? this.format,
       notebookSpreads:

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../data/diary_repository.dart';
+import '../data/mood_repository.dart';
 import '../models/diary_entry.dart';
+import '../models/custom_mood.dart';
 import '../widgets/collapsible_section.dart';
 import '../widgets/mood_selector.dart';
 import '../widgets/notebook_editor.dart';
@@ -20,6 +23,7 @@ class AddEntryScreen extends StatefulWidget {
 class _AddEntryScreenState extends State<AddEntryScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final DiaryRepository _repository = DiaryRepository.instance;
+  final MoodRepository _moodRepository = MoodRepository.instance;
 
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
@@ -217,9 +221,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         ),
         const SizedBox(height: 12),
         TextFormField(
-          key: ValueKey(isNotebook
-              ? 'notebook-title-field'
-              : 'diary-title-field'),
+          key: ValueKey(
+              isNotebook ? 'notebook-title-field' : 'diary-title-field'),
           controller: _titleController,
           decoration: InputDecoration(
             labelText: 'Title',
@@ -253,10 +256,21 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        MoodSelector(
-          selectedMood: _selectedMood,
-          onMoodSelected: (mood) =>
-              setState(() => _selectedMood = mood ?? Mood.happy),
+        ValueListenableBuilder<Box<CustomMood>>(
+          valueListenable: _moodRepository.listenable(),
+          builder: (context, _, __) {
+            final moods = _moodRepository.getAllMoods();
+            final selectedMood = _selectedMood ?? moods.first;
+            return MoodSelector(
+              moods: moods,
+              selectedMood: selectedMood,
+              onMoodSelected: (mood) {
+                setState(() {
+                  _selectedMood = mood ?? moods.first;
+                });
+              },
+            );
+          },
         ),
         const SizedBox(height: 12),
         Text(
@@ -438,7 +452,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                         title: 'Notebook details',
                         subtitle: _entryDetailsSummary,
                         showSubtitleWhenExpanded: false,
-                        child: _buildEntryMetaSection(context, isNotebook: true),
+                        child:
+                            _buildEntryMetaSection(context, isNotebook: true),
                       ),
                     ],
                   )

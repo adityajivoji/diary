@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../models/diary_entry.dart';
+import '../models/mood.dart';
 
 typedef MoodChangedCallback = void Function(Mood? mood);
 
 /// Presents the available moods as cute emoji chips.
 class MoodSelector extends StatelessWidget {
   const MoodSelector({
+    required this.moods,
     required this.selectedMood,
     required this.onMoodSelected,
     this.allowClear = false,
+    this.onAddMood,
     super.key,
   });
 
+  final List<Mood> moods;
   final Mood? selectedMood;
   final MoodChangedCallback onMoodSelected;
   final bool allowClear;
+  final VoidCallback? onAddMood;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +27,7 @@ class MoodSelector extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        for (final mood in Mood.values)
+        for (final mood in moods)
           ChoiceChip(
             label: Text('${mood.emoji} ${mood.label}'),
             selected: selectedMood == mood,
@@ -35,6 +39,17 @@ class MoodSelector extends StatelessWidget {
               }
             },
             selectedColor: Theme.of(context).chipTheme.selectedColor,
+          ),
+        if (onAddMood != null)
+          Tooltip(
+            message: 'Feeling something else?',
+            child: ActionChip(
+              label: const Text('Add mood'),
+              avatar: const Icon(Icons.add, size: 18),
+              onPressed: onAddMood,
+              backgroundColor: Theme.of(context).chipTheme.backgroundColor ??
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+            ),
           ),
         if (allowClear && selectedMood != null)
           ActionChip(

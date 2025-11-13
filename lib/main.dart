@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'data/diary_repository.dart';
+import 'data/mood_repository.dart';
 import 'models/diary_entry.dart';
+import 'models/custom_mood.dart';
 import 'screens/home_screen.dart';
 import 'services/storage_path_manager.dart';
 import 'theme/theme_controller.dart';
@@ -86,6 +88,9 @@ class _AppRootState extends State<AppRoot> {
         if (!Hive.isBoxOpen(DiaryRepository.boxName)) {
           await Hive.openBox<DiaryEntry>(DiaryRepository.boxName);
         }
+        if (!Hive.isBoxOpen(MoodRepository.boxName)) {
+          await Hive.openBox<CustomMood>(MoodRepository.boxName);
+        }
 
         _hiveInitialized = true;
       }
@@ -105,8 +110,9 @@ class _AppRootState extends State<AppRoot> {
       }
       setState(() {
         _error = error.toString();
-        _state =
-            Platform.isMacOS ? _AppInitState.needsDirectory : _AppInitState.loading;
+        _state = Platform.isMacOS
+            ? _AppInitState.needsDirectory
+            : _AppInitState.loading;
       });
     }
   }
@@ -130,6 +136,11 @@ class _AppRootState extends State<AppRoot> {
     final notebookAppearanceAdapter = NotebookAppearanceAdapter();
     if (!Hive.isAdapterRegistered(notebookAppearanceAdapter.typeId)) {
       Hive.registerAdapter(notebookAppearanceAdapter);
+    }
+
+    final customMoodAdapter = CustomMoodAdapter();
+    if (!Hive.isAdapterRegistered(customMoodAdapter.typeId)) {
+      Hive.registerAdapter(customMoodAdapter);
     }
   }
 
