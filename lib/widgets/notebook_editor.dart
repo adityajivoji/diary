@@ -822,7 +822,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
 
   Future<Directory> _getAudioStorageDirectory() async {
     final documents = await getApplicationDocumentsDirectory();
-    final directory = Directory(p.join(documents.path, 'pastel_diary_audio'));
+    final directory = Directory(p.join(documents.path, 'sharu_diary_audio'));
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
@@ -831,7 +831,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
 
   Future<Directory> _getImageStorageDirectory() async {
     final documents = await getApplicationDocumentsDirectory();
-    final directory = Directory(p.join(documents.path, 'pastel_diary_images'));
+    final directory = Directory(p.join(documents.path, 'sharu_diary_images'));
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }

@@ -7,7 +7,7 @@ class SecurityScopedBookmarkManager {
   SecurityScopedBookmarkManager._();
 
   static const MethodChannel _channel =
-      MethodChannel('pastel_diary/security_scoped_bookmarks');
+      MethodChannel('sharu_diary/security_scoped_bookmarks');
 
   static Future<String?> createBookmark(String path) async {
     if (!Platform.isMacOS) {

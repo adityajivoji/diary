@@ -1,7 +1,7 @@
 # Pastel Diary
 
 Pastel Diary is a cute, minimal Flutter journal app designed with soft pastel colors, an adorable mood picker, and smooth animations. It works entirely offline thanks to Hive for local persistence.
-# defaults delete com.example.pastelDiary
+# defaults delete com.example.sharuDiary
 ## Project Structure
 
 ```

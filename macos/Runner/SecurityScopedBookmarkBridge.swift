@@ -11,7 +11,7 @@ class SecurityScopedBookmarkBridge {
 
   func configure(with messenger: FlutterBinaryMessenger) {
     let methodChannel = FlutterMethodChannel(
-      name: "pastel_diary/security_scoped_bookmarks",
+      name: "sharu_diary/security_scoped_bookmarks",
       binaryMessenger: messenger)
     channel?.setMethodCallHandler(nil)
     channel = methodChannel

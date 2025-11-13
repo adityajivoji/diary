@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pastel Diary'),
+        title: const Text("Sharu's Diary"),
         actions: const [
           ThemeSelectorAction(),
         ],

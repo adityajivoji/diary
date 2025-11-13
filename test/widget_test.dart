@@ -10,10 +10,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
-import 'package:pastel_diary/data/diary_repository.dart';
-import 'package:pastel_diary/main.dart';
-import 'package:pastel_diary/models/diary_entry.dart';
-import 'package:pastel_diary/theme/theme_controller.dart';
+import 'package:sharu_diary/data/diary_repository.dart';
+import 'package:sharu_diary/main.dart';
+import 'package:sharu_diary/models/diary_entry.dart';
+import 'package:sharu_diary/theme/theme_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +21,7 @@ void main() {
   late Directory tempDir;
 
   setUpAll(() async {
-    tempDir = await Directory.systemTemp.createTemp('pastel_diary_test');
+    tempDir = await Directory.systemTemp.createTemp('sharu_diary_test');
     Hive.init(tempDir.path);
     final adapter = DiaryEntryAdapter();
     if (!Hive.isAdapterRegistered(adapter.typeId)) {
@@ -40,7 +40,7 @@ void main() {
   testWidgets('Home screen shows empty state when no entries', (WidgetTester tester) async {
     final themeController = await ThemeController.load();
 
-    await tester.pumpWidget(PastelDiaryApp(themeController: themeController));
+    await tester.pumpWidget(SharuDiaryApp(themeController: themeController));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

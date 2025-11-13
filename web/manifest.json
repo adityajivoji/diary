@@ -1,6 +1,6 @@
 {
-    "name": "pastel_diary",
-    "short_name": "pastel_diary",
+    "name": "sharu_diary",
+    "short_name": "sharu_diary",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

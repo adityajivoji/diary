@@ -199,7 +199,7 @@ class _AppRootState extends State<AppRoot> {
           ),
         );
       case _AppInitState.ready:
-        return PastelDiaryApp(themeController: _themeController!);
+        return SharuDiaryApp(themeController: _themeController!);
     }
   }
 }
@@ -240,7 +240,7 @@ class MacStorageSetupScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Pick a folder for Pastel Diary entries so they stay safe even if you reinstall the app.',
+                  'Sharu, Pick a folder for your Diary entries so they stay safe even if you reinstall the app.',
                   textAlign: TextAlign.center,
                 ),
                 if (error != null) ...[
@@ -274,8 +274,8 @@ class MacStorageSetupScreen extends StatelessWidget {
   }
 }
 
-class PastelDiaryApp extends StatelessWidget {
-  const PastelDiaryApp({required this.themeController, super.key});
+class SharuDiaryApp extends StatelessWidget {
+  const SharuDiaryApp({required this.themeController, super.key});
 
   final ThemeController themeController;
 

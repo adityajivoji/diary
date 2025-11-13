@@ -15,7 +15,7 @@ class StoragePathManager {
   static const String _prefsKey = 'macos_custom_storage_path';
   static const String _bookmarkPrefsKey = 'macos_custom_storage_bookmark';
   static const String _selectedFolderKey = 'macos_selected_folder_path';
-  static const String _dataDirectoryName = 'PastelDiaryData';
+  static const String _dataDirectoryName = 'SharuDiaryData';
 
   final Future<SharedPreferences> _preferencesFuture;
   String? _activeBookmark;
