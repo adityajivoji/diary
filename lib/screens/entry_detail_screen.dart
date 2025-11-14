@@ -17,43 +17,11 @@ class EntryDetailScreen extends StatelessWidget {
   final DateFormat _dateFormat;
 
   String _resolveEntryTitle(DiaryEntry entry) {
-    String firstNonEmptyLine(String text) {
-      for (final line in text.split('\n')) {
-        final trimmed = line.trim();
-        if (trimmed.isNotEmpty) {
-          return trimmed;
-        }
-      }
-      return '';
+    final resolved = entry.resolvedTitle.trim();
+    if (resolved.isNotEmpty) {
+      return resolved;
     }
-
-    final trimmedDiaryTitle = entry.diaryTitle.trim();
-
-    if (!entry.usesNotebook) {
-      if (trimmedDiaryTitle.isNotEmpty) {
-        return trimmedDiaryTitle;
-      }
-      final bodyLine = firstNonEmptyLine(entry.diaryBody);
-      if (bodyLine.isNotEmpty) {
-        return bodyLine;
-      }
-      return 'Diary entry';
-    }
-
-    if (trimmedDiaryTitle.isNotEmpty) {
-      return trimmedDiaryTitle;
-    }
-    final notebookLine = firstNonEmptyLine(entry.content);
-    if (notebookLine.isNotEmpty) {
-      return notebookLine;
-    }
-    if (entry.notebookSpreads.isNotEmpty) {
-      final spreadLine = firstNonEmptyLine(entry.notebookSpreads.first.text);
-      if (spreadLine.isNotEmpty) {
-        return spreadLine;
-      }
-    }
-    return 'Notebook entry';
+    return entry.usesNotebook ? 'Notebook entry' : 'Diary entry';
   }
 
   @override

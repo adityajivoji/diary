@@ -275,6 +275,38 @@ class DiaryEntry extends HiveObject {
     return firstSpreadText;
   }
 
+  String get resolvedTitle {
+    String firstNonEmptyLine(String text) {
+      for (final line in text.split('\n')) {
+        final trimmed = line.trim();
+        if (trimmed.isNotEmpty) {
+          return trimmed;
+        }
+      }
+      return '';
+    }
+
+    final trimmedDiaryTitle = diaryTitle.trim();
+    if (!usesNotebook) {
+      if (trimmedDiaryTitle.isNotEmpty) {
+        return trimmedDiaryTitle;
+      }
+      return firstNonEmptyLine(diaryBody);
+    }
+
+    if (trimmedDiaryTitle.isNotEmpty) {
+      return trimmedDiaryTitle;
+    }
+    final notebookLine = firstNonEmptyLine(content);
+    if (notebookLine.isNotEmpty) {
+      return notebookLine;
+    }
+    if (notebookSpreads.isNotEmpty) {
+      return firstNonEmptyLine(notebookSpreads.first.text);
+    }
+    return '';
+  }
+
   DiaryEntry copyWith({
     String? id,
     DateTime? date,

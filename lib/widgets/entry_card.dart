@@ -24,7 +24,9 @@ class EntryCard extends StatelessWidget {
     final accentColor =
         theme.colorScheme.secondaryContainer.withValues(alpha: 0.6);
     final notebookAccent = theme.colorScheme.secondary;
-    final summary = entry.usesNotebook
+    final isNotebook = entry.usesNotebook;
+    final resolvedTitle = entry.resolvedTitle.trim();
+    final rawSummary = isNotebook
         ? entry.notebookSummary
         : (() {
             final title = entry.diaryTitle;
@@ -35,6 +37,26 @@ class EntryCard extends StatelessWidget {
             if (title.isNotEmpty) return title;
             return body;
           })();
+    String summaryText;
+    if (isNotebook) {
+      final trimmedSummary = rawSummary.trim();
+      if (resolvedTitle.isNotEmpty) {
+        final lines = trimmedSummary.split('\n');
+        if (lines.isNotEmpty && lines.first.trim() == resolvedTitle) {
+          // Drop the duplicated first line when it matches the explicit title.
+          summaryText = lines.skip(1).join('\n').trim();
+        } else {
+          summaryText = trimmedSummary;
+        }
+      } else {
+        summaryText = trimmedSummary;
+      }
+    } else {
+      summaryText = rawSummary.trim();
+    }
+    final showNotebookSummary = isNotebook &&
+        summaryText.isNotEmpty &&
+        (resolvedTitle.isEmpty || summaryText != resolvedTitle);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -86,7 +108,7 @@ class EntryCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (entry.usesNotebook) ...[
+                        if (isNotebook) ...[
                           const SizedBox(height: 6),
                           Row(
                             children: [
@@ -108,12 +130,25 @@ class EntryCard extends StatelessWidget {
                           const SizedBox(height: 6),
                         ] else
                           const SizedBox(height: 4),
-                        Text(
-                          summary,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium,
-                        ),
+                        if (isNotebook && resolvedTitle.isNotEmpty)
+                          Text(
+                            resolvedTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        if (!isNotebook || showNotebookSummary) ...[
+                          if (isNotebook && resolvedTitle.isNotEmpty)
+                            const SizedBox(height: 4),
+                          Text(
+                            summaryText,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
                         if (entry.hasMultipleMoods) ...[
                           const SizedBox(height: 8),
                           Wrap(
